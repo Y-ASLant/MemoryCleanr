@@ -25,7 +25,7 @@ actions!(wmc_gpui, [Quit]);
 #[cfg(target_os = "windows")]
 pub fn log_msg(msg: &str) {
     #[link(name = "kernel32")]
-    extern "system" {
+    unsafe extern "system" {
         fn OutputDebugStringA(lp_output_string: *const u8);
     }
     let mut bytes = format!("{msg}\n").into_bytes();

@@ -45,7 +45,7 @@ pub struct MemoryCombineInformationEx {
 }
 
 #[link(name = "ntdll")]
-extern "system" {
+unsafe extern "system" {
     fn NtSetSystemInformation(
         system_information_class: u32,
         system_information: *mut core::ffi::c_void,
