@@ -21,8 +21,8 @@ const WINDOW_HEIGHT_COLLAPSED: f32 = 300.;
 const WINDOW_HEIGHT_EXPANDED: f32 = 620.;
 const WINDOW_MIN_WIDTH: f32 = 560.;
 const WINDOW_MIN_HEIGHT: f32 = 300.;
-pub const CONTENT_PADDING: f32 = 4.;
-const SECTION_GAP: f32 = 4.;
+pub const CONTENT_PADDING: f32 = 6.;
+const SECTION_GAP: f32 = 6.;
 const SINGLE_CARD_MAX_WIDTH: f32 = 360.;
 
 pub fn window_size(expanded: bool) -> Size<Pixels> {
@@ -421,26 +421,31 @@ impl MemoryCleanerApp {
     fn format_freed_message(avail_before: u64, avail_after: u64) -> String {
         if avail_after > avail_before {
             format!(
-                "物理内存可用增加 {}",
+                "+{}",
                 MemoryStatus::format_bytes(avail_after - avail_before)
             )
         } else {
-            "物理内存可用量未明显增加（缓存将按需重建）".into()
+            String::new()
         }
     }
 
     fn build_result_message(completed: &[&str], errors: &[&str], freed_detail: &str) -> String {
-        let summary = match (completed.is_empty(), errors.is_empty()) {
-            (true, true) => "未清理任何区域".into(),
-            (true, false) => format!("失败：{}（需要管理员权限）", errors.join("、")),
-            (false, true) => format!("完成：{}", completed.join("、")),
+        match (completed.is_empty(), errors.is_empty()) {
+            (true, true) => "未执行清理".into(),
+            (true, false) => format!("清理失败：{}", errors.join("、")),
+            (false, true) => {
+                if freed_detail.is_empty() {
+                    format!("清理完成（{} 项）", completed.len())
+                } else {
+                    format!("清理完成 · {freed_detail}")
+                }
+            }
             (false, false) => format!(
-                "完成：{}，失败：{}",
-                completed.join("、"),
+                "完成 {} 项，失败：{}",
+                completed.len(),
                 errors.join("、")
             ),
-        };
-        format!("{summary}。{freed_detail}")
+        }
     }
 
     async fn run_optimize_step(
@@ -573,18 +578,18 @@ impl MemoryCleanerApp {
                 let _ = app.refresh_memory(cx);
                 let avail_after = app.physical.avail;
                 let freed_detail = Self::format_freed_message(avail_before, avail_after);
-                let message = Self::build_result_message(&completed, &errors, &freed_detail);
                 app.optimize_step.clear();
-                app.optimize_percent = 100.0;
-                app.optimize_status = message;
+                app.is_optimizing = false;
+                app.optimize_percent = 0.0;
+                app.optimize_status =
+                    Self::build_result_message(&completed, &errors, &freed_detail);
                 cx.notify();
             });
 
             Timer::after(OPTIMIZE_RESULT_DISPLAY).await;
 
             let _ = this.update(cx, |app, cx| {
-                app.is_optimizing = false;
-                app.optimize_percent = 0.0;
+                app.optimize_status.clear();
                 cx.notify();
             });
         })
@@ -612,7 +617,6 @@ impl Render for MemoryCleanerApp {
         let physical_ring = self.physical_ring;
         let virtual_ring = self.virtual_ring;
         let show_virtual = self.virtual_mem.is_some();
-        let settings_expanded = self.settings_expanded;
 
         let physical_card = GroupBox::new()
             .id("physical-memory-card")
@@ -634,8 +638,9 @@ impl Render for MemoryCleanerApp {
             );
 
         let memory_row = if show_virtual {
-            let mut row = h_flex()
+            h_flex()
                 .w_full()
+                .flex_shrink_0()
                 .gap(px(SECTION_GAP))
                 .child(div().flex_1().min_w_0().child(physical_card))
                 .child(div().flex_1().min_w_0().child({
@@ -659,29 +664,20 @@ impl Render for MemoryCleanerApp {
                                     cx,
                                 )),
                         )
-                }));
-            if settings_expanded {
-                row = row.min_h(px(100.)).max_h(px(160.));
-            } else {
-                row = row.flex_shrink_0();
-            }
-            row.into_any_element()
+                }))
+                .into_any_element()
         } else {
-            let mut row = h_flex()
+            h_flex()
                 .w_full()
+                .flex_shrink_0()
                 .justify_center()
                 .child(
                     div()
                         .w_full()
                         .max_w(px(SINGLE_CARD_MAX_WIDTH))
                         .child(physical_card),
-                );
-            if settings_expanded {
-                row = row.min_h(px(100.)).max_h(px(160.));
-            } else {
-                row = row.flex_shrink_0();
-            }
-            row.into_any_element()
+                )
+                .into_any_element()
         };
 
         div().relative().w_full().h_full().overflow_hidden().child(
