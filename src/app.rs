@@ -11,6 +11,7 @@ use crate::memory::{MemorySection, MemoryStatus};
 use crate::optimize::{self, MemoryAreas};
 use crate::settings::Settings;
 use crate::tray::{poll_menu_events, poll_tray_click};
+use crate::ui::layout::SECTION_GAP;
 use crate::ui::memory_card::{RingAnim, RING_ANIM_DURATION_MS};
 use crate::win32;
 
@@ -20,16 +21,14 @@ const OPTIMIZE_RESULT_DISPLAY: Duration = Duration::from_secs(5);
 
 const WINDOW_WIDTH: f32 = 560.;
 const WINDOW_HEIGHT_COLLAPSED: f32 = 300.;
-const WINDOW_HEIGHT_EXPANDED: f32 = 620.;
 const WINDOW_MIN_WIDTH: f32 = 560.;
 const WINDOW_MIN_HEIGHT: f32 = 300.;
 pub const CONTENT_PADDING: f32 = 6.;
-const SECTION_GAP: f32 = 6.;
 const SINGLE_CARD_MAX_WIDTH: f32 = 360.;
 
 pub fn window_size(expanded: bool) -> Size<Pixels> {
     let height = if expanded {
-        WINDOW_HEIGHT_EXPANDED
+        crate::ui::layout::expanded_window_height(CONTENT_PADDING)
     } else {
         WINDOW_HEIGHT_COLLAPSED
     };
@@ -349,14 +348,7 @@ impl MemoryCleanerApp {
 
     pub fn toggle_settings_expanded(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.settings_expanded = !self.settings_expanded;
-        let target = window_size(self.settings_expanded);
-        if self.settings_expanded {
-            let current = window.bounds().size;
-            let height = current.height.max(target.height);
-            window.resize(size(target.width, height));
-        } else {
-            window.resize(target);
-        }
+        window.resize(window_size(self.settings_expanded));
         cx.notify();
     }
 
@@ -632,7 +624,7 @@ enum RingKind {
 impl Render for MemoryCleanerApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         use crate::ui::memory_card::render_memory_card;
-        use crate::ui::settings_page::render_settings_bottom;
+        use crate::ui::settings_page::{render_cleanup_footer, render_settings_content};
         use crate::ui::title_bar::render_title_bar;
         use gpui_component::{
             group_box::{GroupBox, GroupBoxVariants},
@@ -719,10 +711,26 @@ impl Render for MemoryCleanerApp {
                         .flex_1()
                         .min_h_0()
                         .overflow_hidden()
-                        .p(px(CONTENT_PADDING))
-                        .gap(px(SECTION_GAP))
-                        .child(memory_row)
-                        .child(render_settings_bottom(self, cx)),
+                        .child(
+                            v_flex()
+                                .w_full()
+                                .flex_1()
+                                .min_h_0()
+                                .px(px(CONTENT_PADDING))
+                                .pt(px(CONTENT_PADDING))
+                                .gap(px(SECTION_GAP))
+                                .child(memory_row)
+                                .child(render_settings_content(self, cx)),
+                        )
+                        .child(
+                            div()
+                                .w_full()
+                                .flex_shrink_0()
+                                .px(px(CONTENT_PADDING))
+                                .pb(px(CONTENT_PADDING))
+                                .pt(px(SECTION_GAP))
+                                .child(render_cleanup_footer(self, cx)),
+                        ),
                 ),
         )
         .children(gpui_component::Root::render_dialog_layer(window, cx))

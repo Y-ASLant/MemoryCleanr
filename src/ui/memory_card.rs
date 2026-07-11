@@ -16,6 +16,8 @@ pub const RING_ANIM_DURATION_MS: u64 = 450;
 const OUTER_RADIUS: f32 = 55.;
 const INNER_RADIUS: f32 = 35.;
 
+pub const MEMORY_RING_SIZE: f32 = OUTER_RADIUS * 2.;
+
 /// 卡片容器上下内边距（app 中 GroupBox 内 v_flex 使用）。
 pub const MEMORY_CARD_PY: f32 = 2.;
 

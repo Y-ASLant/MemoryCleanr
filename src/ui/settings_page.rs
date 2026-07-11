@@ -11,12 +11,10 @@ use gpui_component::{
 };
 
 use crate::app::{MemoryCleanerApp, CONTENT_PADDING};
+use crate::ui::layout::{CLEANUP_BUTTON_H, SECTION_GAP};
 use crate::optimize::MemoryAreas;
 
-const SECTION_GAP: f32 = 6.;
 const ROW_GAP: f32 = 6.;
-
-const CLEANUP_BUTTON_H: f32 = 48.;
 const BUTTON_STATUS_TRUNCATE_CHARS: usize = 24;
 
 fn panel_section_title(icon: IconName, label: &'static str) -> impl IntoElement {
@@ -296,7 +294,10 @@ fn render_cleanup_button_content(
             .justify_center()
             .gap_2()
             .child(
-                ProgressCircle::new("inline-optimize-progress").value(app.optimize_percent),
+                ProgressCircle::new("inline-optimize-progress")
+                    .color(color)
+                    .small()
+                    .value(app.optimize_percent),
             )
             .child(
                 Label::new(line)
@@ -324,7 +325,7 @@ fn render_cleanup_button_content(
         .into_any_element()
 }
 
-fn render_action_footer(
+pub fn render_cleanup_footer(
     app: &MemoryCleanerApp,
     cx: &mut Context<MemoryCleanerApp>,
 ) -> impl IntoElement {
@@ -345,7 +346,7 @@ fn render_action_footer(
         button.primary()
     };
 
-    button = if areas_empty {
+    if areas_empty {
         button.tooltip("请先选择清理区域")
     } else if app.is_optimizing {
         button.tooltip(cleanup_step_text(app))
@@ -353,13 +354,26 @@ fn render_action_footer(
         button.tooltip("开始清理内存")
     } else {
         button.tooltip(app.optimize_status.clone())
-    };
+    }
+}
 
-    div()
-        .id("cleanup-footer")
-        .w_full()
-        .flex_shrink_0()
-        .child(button)
+pub fn render_settings_content(
+    app: &MemoryCleanerApp,
+    cx: &mut Context<MemoryCleanerApp>,
+) -> impl IntoElement {
+    if app.settings_expanded {
+        let theme = cx.theme();
+        return render_settings_details(
+            app,
+            theme.border,
+            theme.radius,
+            theme.muted_foreground,
+            cx,
+        )
+        .into_any_element();
+    }
+
+    div().flex_1().min_h_0().into_any_element()
 }
 
 fn render_settings_details(
@@ -384,29 +398,4 @@ fn render_settings_details(
                 .child(panel_section_title(IconName::Settings, "清理区域"))
                 .child(render_cleanup_areas(app, muted, cx)),
         )
-}
-
-pub fn render_settings_bottom(
-    app: &MemoryCleanerApp,
-    cx: &mut Context<MemoryCleanerApp>,
-) -> impl IntoElement {
-    let theme = cx.theme();
-    let border = theme.border;
-    let radius = theme.radius;
-    let muted = theme.muted_foreground;
-
-    let mut column = v_flex()
-        .id("settings-bottom-column")
-        .w_full()
-        .flex_1()
-        .min_h_0()
-        .gap(px(SECTION_GAP));
-
-    if app.settings_expanded {
-        column = column.child(render_settings_details(app, border, radius, muted, cx));
-    } else {
-        column = column.child(div().flex_1().min_h_0());
-    }
-
-    column.child(render_action_footer(app, cx))
 }

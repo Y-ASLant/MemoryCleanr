@@ -114,7 +114,7 @@ fn main() {
         let window_options = WindowOptions {
             titlebar: Some(TitleBar::title_bar_options()),
             window_bounds: Some(WindowBounds::centered(app::window_size(false), cx)),
-            is_resizable: true,
+            is_resizable: false,
             window_min_size: Some(app::window_min_size()),
             ..Default::default()
         };
