@@ -261,15 +261,15 @@ fn status_line_text(app: &MemoryCleanerApp) -> Option<String> {
     None
 }
 
-fn status_line_color(app: &MemoryCleanerApp, cx: &App) -> Hsla {
-    if app.is_optimizing {
-        return cx.theme().foreground;
+fn cleanup_button_text_color(app: &MemoryCleanerApp, cx: &App) -> Hsla {
+    let theme = cx.theme();
+    if app.settings.memory_areas().is_empty() {
+        return theme.muted_foreground.opacity(0.5);
     }
     if app.optimize_status.contains("失败") {
-        cx.theme().danger
-    } else {
-        cx.theme().muted_foreground
+        return theme.danger;
     }
+    theme.button_primary_foreground
 }
 
 fn split_result_status(status: &str) -> (String, Option<String>) {
@@ -291,7 +291,8 @@ fn render_cleanup_button_content(
     app: &MemoryCleanerApp,
     cx: &mut Context<MemoryCleanerApp>,
 ) -> impl IntoElement {
-    let color = status_line_color(app, cx);
+    let color = cleanup_button_text_color(app, cx);
+    let detail_color = cx.theme().button_primary_foreground.opacity(0.75);
 
     if app.is_optimizing {
         let line = status_line_text(app).unwrap_or_else(|| "正在准备清理…".into());
@@ -327,7 +328,7 @@ fn render_cleanup_button_content(
                 .child(
                     Label::new(detail)
                         .text_xs()
-                        .text_color(cx.theme().muted_foreground)
+                        .text_color(detail_color)
                         .truncate(),
                 )
                 .into_any_element();
@@ -342,6 +343,7 @@ fn render_cleanup_button_content(
     Label::new("一键清理")
         .text_sm()
         .font_weight(FontWeight::MEDIUM)
+        .text_color(color)
         .into_any_element()
 }
 
