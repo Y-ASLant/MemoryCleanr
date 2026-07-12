@@ -76,7 +76,7 @@ fn render_cleanup_areas(
         .child(
             div()
                 .w_full()
-                .rounded(px(4.))
+                .rounded(cx.theme().radius)
                 .px_2()
                 .py_1()
                 .bg(muted.opacity(0.12))

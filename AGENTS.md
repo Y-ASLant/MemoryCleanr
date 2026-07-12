@@ -17,11 +17,11 @@ main.rs  →  ensure_elevated() → single-instance check → tray install → G
                 ├─ privileges.rs   (SeProfileSingleProcessPrivilege, SeIncreaseQuotaPrivilege)
                 ├─ tray.rs         (tray-icon crate, App.png embedded via include_bytes!)
                 ├─ version.rs      (version constant)
-                ├─ ui/             (GPUI components: layout, memory_card, settings_page, title_bar)
-                └─ win32/          (nt.rs: raw NT bindings; single_instance.rs: mutex; window.rs: HWND ops)
+                ├─ ui/             (GPUI components: layout, memory_card, settings_page, theme, title_bar)
+                └─ win32/          (nt.rs, os.rs, single_instance.rs, window.rs)
 ```
 
-- **Entry flow:** `main.rs` → elevation → single-instance mutex → install tray → run GPUI app → open window with saved settings.
+- **Entry flow:** `main.rs` → elevation → single-instance mutex → install tray → run GPUI app → `ui::theme::init_light_theme` → open window with saved settings.
 - **Async runtime:** `smol` for async task execution (optimization progress updates).
 - **UI stack:** GPUI + `gpui-component` (Button, Checkbox, Switch, GroupBox, ProgressCircle).
 - **Native layer:** `src/win32/` wraps low-level Windows APIs; `src/optimize.rs` orchestrates the cleanup steps.
@@ -32,8 +32,8 @@ main.rs  →  ensure_elevated() → single-instance check → tray install → G
 | Path | Purpose |
 |---|---|
 | `src/` | Application source (binary crate, main.rs entry point) |
-| `src/ui/` | GPUI UI components (layout, memory_card, settings_page, title_bar) |
-| `src/win32/` | Win32/NT API bindings (nt, single_instance, window) |
+| `src/ui/` | GPUI UI components (layout, memory_card, settings_page, theme, title_bar) |
+| `src/win32/` | Win32/NT API bindings (nt, os, single_instance, window) |
 | `vendor/proc-macro-error2/` | Vendored patch for Rust 1.97+ compatibility (see below) |
 | `.codegraph/` | Codegraph index (gitignored) |
 
@@ -73,6 +73,7 @@ make clean                # cargo clean
 - **Bitflags:** `MemoryAreas` in `optimize.rs` uses the `bitflags` crate to represent configurable cleaning regions.
 - **Embedded assets:** `App.ico` compiled into the binary via `winres` (build.rs); `App.png` embedded via `include_bytes!` in `tray.rs`.
 - **Debug logging:** `log_msg()` always writes to `OutputDebugString` (and stderr in debug builds). `log::write()` additionally appends to `App.log` beside the executable when `settings.debug_logging` is true. Before each write, `log.rs` purges lines whose `[unix_secs.millis]` prefix is older than 7 days (`LOG_RETENTION_SECS`).
+- **Platform UI chrome:** `win32::os::is_windows_11_or_later()` uses `RtlGetVersion` (build ≥ 22000 = Win11). `ui::theme::init_light_theme` sets gpui-component `radius` / `radius_lg` to 0 and disables `shadow` on Win10 so buttons, cards, and dialogs render with square corners. Custom UI must use `cx.theme().radius`, not hardcoded `rounded(px(...))`.
 
 ## Important Files
 
@@ -81,6 +82,8 @@ make clean                # cargo clean
 | `src/main.rs` | Entry point — elevation, single-instance, tray, GPUI launch |
 | `src/app.rs` | Core application state and render logic (~25 KB, largest file) |
 | `src/log.rs` | Optional `App.log` file output with timestamp-based line retention |
+| `src/ui/theme.rs` | Light theme init + Win10 square-corner chrome |
+| `src/win32/os.rs` | Windows build detection (Win10 vs Win11) |
 | `src/optimize.rs` | Memory cleanup orchestration (8 cleaning regions) |
 | `src/settings.rs` | TOML settings schema and persistence |
 | `src/win32/nt.rs` | Raw NT API bindings (`NtSetSystemInformation`, structs, enums) |
@@ -93,8 +96,9 @@ make clean                # cargo clean
 - **Window size:** fixed width 520px; collapsed height ~294px, expanded ~456px (`src/app.rs` + `src/ui/layout.rs`).
 - **Collapsed view:** memory cards + cleanup button.
 - **Expanded view:** adds cleanup-area checkboxes panel (`settings_page::render_settings_content`).
-- **Window behavior dialog** (always on top, close-to-tray, debug logging): opened from title-bar gear icon, not from the expand panel.
+- **Window behavior dialog** (always on top, close-to-tray, debug logging): opened from title-bar gear icon; `overlay_closable(false)` — clicking the backdrop does not close it.
 - **Optimization feedback:** progress and result text render inside the cleanup button; result clears after 5 seconds (`OPTIMIZE_RESULT_DISPLAY`).
+- **Platform chrome:** Win10 (build &lt; 22000) uses square corners via theme tokens; Win11 keeps gpui-component defaults. Dialog centering uses `layout::centered_dialog_margin_top` with `WINDOW_BEHAVIOR_DIALOG_WIDTH` (480px).
 
 ## Unimplemented Settings (Reserved)
 

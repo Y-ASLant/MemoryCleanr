@@ -38,6 +38,7 @@ windows = { version = "0.62", features = [
     "Win32_Storage_FileSystem",
     "Win32_System_Diagnostics_ToolHelp",
     "Win32_UI_WindowsAndMessaging",
+    "Wdk_System_SystemServices",
 ] }
 
 [profile.release]

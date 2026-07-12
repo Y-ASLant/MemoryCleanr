@@ -12,7 +12,7 @@ mod version;
 mod win32;
 
 use gpui::{actions, *};
-use gpui_component::{Root, Theme, ThemeMode, TitleBar};
+use gpui_component::{Root, TitleBar};
 
 use crate::version::APP_NAME;
 use app::MemoryCleanerApp;
@@ -167,7 +167,7 @@ fn main() {
                     cx.quit();
                 });
                 let _ = win32::window::remove_maximize_button(window);
-                Theme::change(ThemeMode::Light, Some(window), cx);
+                crate::ui::theme::init_light_theme(window, cx);
                 cx.new(|cx| Root::new(app_entity, window, cx))
             })
             .expect("Failed to open window");
