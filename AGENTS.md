@@ -10,6 +10,7 @@ Memory Cleanr is a **Windows-only** GUI memory-optimization tool written in Rust
 main.rs  →  ensure_elevated() → single-instance check → tray install → GPUI app launch
                 │
                 ├─ app.rs          (core state, polling loop, optimization dispatch)
+                ├─ log.rs          (optional App.log file output, timestamp-based retention)
                 ├─ memory.rs       (GlobalMemoryStatusEx → MemoryStatus)
                 ├─ optimize.rs     (MemoryAreas bitflags → NT cache-purge steps)
                 ├─ settings.rs     (TOML persistence at %APPDATA%\MemoryCleaner\settings.toml)
@@ -22,9 +23,9 @@ main.rs  →  ensure_elevated() → single-instance check → tray install → G
 
 - **Entry flow:** `main.rs` → elevation → single-instance mutex → install tray → run GPUI app → open window with saved settings.
 - **Async runtime:** `smol` for async task execution (optimization progress updates).
-- **UI stack:** GPUI + `gpui-component` (Button, Checkbox, Switch, GroupBox, PieChart).
+- **UI stack:** GPUI + `gpui-component` (Button, Checkbox, Switch, GroupBox, ProgressCircle).
 - **Native layer:** `src/win32/` wraps low-level Windows APIs; `src/optimize.rs` orchestrates the cleanup steps.
-- **Console suppression:** Release builds use `#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]`; diagnostics go to `OutputDebugStringA` (viewable via DebugView).
+- **Console suppression:** `main.rs` uses `#![windows_subsystem = "windows"]`; diagnostics go to `OutputDebugStringA` (viewable via DebugView). Optional file logging via `src/log.rs` when `debug_logging` is enabled.
 
 ## Key Directories
 
@@ -71,6 +72,7 @@ make clean                # cargo clean
 - **Settings persistence:** TOML file at `%APPDATA%\MemoryCleaner\settings.toml`, written atomically (temp file + rename).
 - **Bitflags:** `MemoryAreas` in `optimize.rs` uses the `bitflags` crate to represent configurable cleaning regions.
 - **Embedded assets:** `App.ico` compiled into the binary via `winres` (build.rs); `App.png` embedded via `include_bytes!` in `tray.rs`.
+- **Debug logging:** `log_msg()` always writes to `OutputDebugString` (and stderr in debug builds). `log::write()` additionally appends to `App.log` beside the executable when `settings.debug_logging` is true. Before each write, `log.rs` purges lines whose `[unix_secs.millis]` prefix is older than 7 days (`LOG_RETENTION_SECS`).
 
 ## Important Files
 
@@ -78,12 +80,29 @@ make clean                # cargo clean
 |---|---|
 | `src/main.rs` | Entry point — elevation, single-instance, tray, GPUI launch |
 | `src/app.rs` | Core application state and render logic (~25 KB, largest file) |
+| `src/log.rs` | Optional `App.log` file output with timestamp-based line retention |
 | `src/optimize.rs` | Memory cleanup orchestration (8 cleaning regions) |
 | `src/settings.rs` | TOML settings schema and persistence |
 | `src/win32/nt.rs` | Raw NT API bindings (`NtSetSystemInformation`, structs, enums) |
 | `Cargo.toml` | Dependencies, features, release profile (LTO, strip, abort-on-panic) |
 | `build.rs` | Icon embedding via `winres` |
 | `Makefile` | fmt / check / build / clean targets |
+
+## UI Layout Notes
+
+- **Window size:** fixed width 520px; collapsed height ~294px, expanded ~456px (`src/app.rs` + `src/ui/layout.rs`).
+- **Collapsed view:** memory cards + cleanup button.
+- **Expanded view:** adds cleanup-area checkboxes panel (`settings_page::render_settings_content`).
+- **Window behavior dialog** (always on top, close-to-tray, debug logging): opened from title-bar gear icon, not from the expand panel.
+- **Optimization feedback:** progress and result text render inside the cleanup button; result clears after 5 seconds (`OPTIMIZE_RESULT_DISPLAY`).
+
+## Unimplemented Settings (Reserved)
+
+These fields exist in `settings.toml` for forward compatibility but have no runtime logic yet:
+
+- `auto_optimization_interval` / `auto_optimization_memory_usage` — scheduled or threshold-triggered auto cleanup
+- `show_optimization_notifications` — completion notifications (in-window toast / system toast when hidden)
+- `tray_icon_*` — dynamic tray icon based on memory usage
 
 ## Runtime / Tooling Preferences
 
@@ -93,10 +112,11 @@ make clean                # cargo clean
 - **Vendored patch:** `proc-macro-error2` 2.0.1 is vendored under `vendor/` to fix `E0365` on Rust 1.97+ (changes `extern crate proc_macro` to `pub extern crate proc_macro`). Remove when upstream releases a fix.
 - **Release profile:** Aggressive optimization — LTO enabled, symbols stripped, `opt-level = "z"` (size), single codegen unit, `panic = "abort"`.
 - **Package manager:** Cargo only. No npm, no other package managers.
+- **Binary name:** `MemoryCleanr.exe` (see `[[bin]]` name in `Cargo.toml`).
 
 ## Testing & QA
 
 - **No tests exist.** Zero unit tests, integration tests, or benchmarks.
 - **No CI/CD** pipelines configured.
 - **Manual testing** is the current workflow — run `cargo run` or `cargo run --release` on a Windows machine with admin privileges.
-- **Diagnostics:** Use DebugView (Sysinternals) to read `OutputDebugStringA` output in release builds.
+- **Diagnostics:** Use DebugView (Sysinternals) to read `OutputDebugStringA` output. Enable debug logging in the window-behavior dialog to capture detailed traces in `App.log`.
