@@ -95,6 +95,7 @@ pub struct MemoryCleanerApp {
     pub virtual_mem: Option<MemorySection>,
     settings_save_gen: u32,
     pub is_optimizing: bool,
+    pub is_refreshing_icon_cache: bool,
     pub optimize_step: String,
     pub optimize_percent: f32,
     pub optimize_status: String,
@@ -156,6 +157,7 @@ impl MemoryCleanerApp {
             virtual_mem,
             settings_save_gen: 0,
             is_optimizing: false,
+            is_refreshing_icon_cache: false,
             optimize_step: String::new(),
             optimize_percent: 0.0,
             optimize_status: String::new(),
@@ -549,6 +551,28 @@ impl MemoryCleanerApp {
 
             let _ = this.update(cx, |app, cx| {
                 app.optimize_status.clear();
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    pub fn refresh_desktop_icon_cache(&mut self, cx: &mut Context<Self>) {
+        if self.is_refreshing_icon_cache || self.is_optimizing {
+            return;
+        }
+
+        self.is_refreshing_icon_cache = true;
+        cx.notify();
+
+        cx.spawn(async move |this, cx| {
+            let result = smol::unblock(crate::icon_cache::refresh).await;
+            if let Err(e) = result {
+                crate::log::write(&format!("[icon_cache] 失败: {e:#}"));
+            }
+
+            let _ = this.update(cx, |app, cx| {
+                app.is_refreshing_icon_cache = false;
                 cx.notify();
             });
         })

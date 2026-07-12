@@ -109,18 +109,6 @@ cargo run --release
 | `memory_areas` | u32 | `111` | 清理区域位掩码（各 `MemoryAreas` 标志位之和） |
 | `debug_logging` | bool | `false` | 将详细运行信息写入程序目录下的 `App.log` |
 
-以下为预留字段，当前版本尚未实现：
-
-| 配置项 | 默认值 | 计划用途 |
-|--------|--------|----------|
-| `auto_optimization_interval` | `0` | 自动优化时间间隔（小时，0 表示关闭） |
-| `auto_optimization_memory_usage` | `0` | 自动优化内存阈值（可用物理内存百分比，0 表示关闭） |
-| `show_optimization_notifications` | `true` | 优化完成通知（窗口内 Toast / 托盘后台系统通知） |
-| `tray_icon_show_memory_usage` | `false` | 托盘图标显示内存占用 |
-| `tray_icon_use_transparent_background` | `false` | 托盘图标透明背景 |
-| `tray_icon_warning_level` | `80` | 托盘图标警告阈值（%） |
-| `tray_icon_danger_level` | `90` | 托盘图标危险阈值（%） |
-
 ## 技术栈
 
 | 依赖 | 用途 |
@@ -185,7 +173,3 @@ Windows 会按需将常用页面重新加载到内存。清理后短期内可能
 
 - **始终可用：** 诊断信息通过 `OutputDebugString` 输出，可用 [DebugView](https://learn.microsoft.com/en-us/sysinternals/downloads/debugview) 查看（Release 构建无控制台窗口）。
 - **调试日志：** 在标题栏齿轮菜单中开启「调试日志」后，详细运行信息写入程序目录下的 `App.log`（与 `MemoryCleanr.exe` 同目录）。每行格式为 `[unix_secs.millis] 消息`；写入新日志时会自动删除时间戳早于 7 天的旧行。
-
-## 许可
-
-[MIT](LICENSE)

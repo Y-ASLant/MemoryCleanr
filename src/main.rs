@@ -1,6 +1,7 @@
 #![windows_subsystem = "windows"]
 
 mod app;
+mod icon_cache;
 mod log;
 mod memory;
 mod optimize;
