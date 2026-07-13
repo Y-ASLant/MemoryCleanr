@@ -21,6 +21,7 @@ pub struct Tray {
 #[derive(Debug, Clone)]
 pub enum TrayCommand {
     ActivateWindow,
+    RefreshTooltip,
     MenuAction(String),
 }
 
@@ -110,16 +111,18 @@ pub fn sync_display(
 fn install_event_handlers(tx: Sender<TrayCommand>) {
     TrayIconEvent::set_event_handler(Some({
         let tx = tx.clone();
-        move |event| {
-            let TrayIconEvent::Click {
+        move |event| match event {
+            TrayIconEvent::Click {
                 button: MouseButton::Left,
                 button_state: MouseButtonState::Up,
                 ..
-            } = event
-            else {
-                return;
-            };
-            let _ = tx.send(TrayCommand::ActivateWindow);
+            } => {
+                let _ = tx.send(TrayCommand::ActivateWindow);
+            }
+            TrayIconEvent::Enter { .. } => {
+                let _ = tx.send(TrayCommand::RefreshTooltip);
+            }
+            _ => {}
         }
     }));
 
@@ -179,6 +182,10 @@ pub fn dispatch_command(
 ) {
     match command {
         TrayCommand::ActivateWindow => app.activate_window(cx),
+        TrayCommand::RefreshTooltip => {
+            app.refresh_memory(cx);
+            app.sync_tray(cx);
+        }
         TrayCommand::MenuAction(action) => app.handle_tray_action(&action, cx),
     }
 }

@@ -17,7 +17,6 @@ use crate::tray::{TrayCommand, dispatch_command};
 use crate::ui::layout::SECTION_GAP;
 use crate::win32;
 
-const MEMORY_POLL_INTERVAL: Duration = Duration::from_secs(5);
 const SETTINGS_SAVE_DEBOUNCE: Duration = Duration::from_millis(300);
 const OPTIMIZE_RESULT_DISPLAY: Duration = Duration::from_secs(5);
 
@@ -170,7 +169,7 @@ impl MemoryCleanerApp {
             .unwrap_or(true)
     }
 
-    fn sync_tray(&self, cx: &mut Context<Self>) {
+    pub(crate) fn sync_tray(&self, cx: &mut Context<Self>) {
         let virtual_mem = if self.settings.show_virtual_memory {
             self.virtual_mem.as_ref()
         } else {
@@ -388,26 +387,19 @@ impl MemoryCleanerApp {
         cx.spawn(async move |this, cx| {
             loop {
                 let (command, rx) = smol::unblock(move || {
-                    let result = tray_rx.recv_timeout(MEMORY_POLL_INTERVAL);
-                    (result.ok(), tray_rx)
+                    let result = tray_rx.recv();
+                    (result, tray_rx)
                 })
                 .await;
                 tray_rx = rx;
 
+                let Ok(command) = command else {
+                    break;
+                };
+
                 if this
                     .update(cx, |this, cx| {
-                        let mut changed = false;
-                        if let Some(command) = command {
-                            dispatch_command(this, command, cx);
-                            changed = true;
-                        }
-                        if this.refresh_memory(cx) {
-                            changed = true;
-                        }
-                        this.sync_tray(cx);
-                        if changed {
-                            cx.notify();
-                        }
+                        dispatch_command(this, command, cx);
                     })
                     .is_err()
                 {
