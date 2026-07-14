@@ -247,23 +247,49 @@ fn render_language_selector(
         .gap_3()
         .py(px(3.))
         .child(
-            h_flex()
+            v_flex()
                 .flex_1()
                 .min_w_0()
-                .items_center()
-                .gap_2()
+                .gap(px(1.))
                 .child(
-                    div()
-                        .flex_shrink_0()
-                        .flex()
+                    h_flex()
+                        .w_full()
                         .items_center()
-                        .child(Icon::new(IconName::Globe).small().text_color(muted)),
+                        .gap_2()
+                        .child(
+                            div()
+                                .flex_shrink_0()
+                                .flex()
+                                .items_center()
+                                .child(Icon::new(IconName::Globe).small().text_color(muted)),
+                        )
+                        .child(
+                            Label::new(t!("settings.language").to_string())
+                                .text_sm()
+                                .font_weight(FontWeight::MEDIUM)
+                                .text_color(foreground),
+                        ),
                 )
                 .child(
-                    Label::new(t!("settings.language").to_string())
-                        .text_sm()
-                        .font_weight(FontWeight::MEDIUM)
-                        .text_color(foreground),
+                    h_flex()
+                        .w_full()
+                        .items_start()
+                        .gap_2()
+                        .child(
+                            div()
+                                .flex_shrink_0()
+                                .invisible()
+                                .flex()
+                                .items_center()
+                                .child(Icon::new(IconName::Globe).small()),
+                        )
+                        .child(
+                            Label::new(t!("settings.language_desc").to_string())
+                                .text_xs()
+                                .text_color(muted)
+                                .flex_1()
+                                .min_w_0(),
+                        ),
                 ),
         )
         .child({

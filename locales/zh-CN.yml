@@ -59,8 +59,8 @@ tray.tooltip_virtual:
 
 # Settings / Window behavior dialog
 dialog.window_behavior:
-  zh-CN: "窗口行为"
-  en: "Window Behavior"
+  zh-CN: "应用设置"
+  en: "Application Settings"
 settings.always_on_top:
   zh-CN: "窗口置顶"
   en: "Always on Top"
