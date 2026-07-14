@@ -69,7 +69,7 @@ cargo run --release
 make clean # cargo clean
 ```
 
-**Tests:** `make test` / `cargo test` — 36 unit tests in `src/` plus 2 integration tests in `tests/settings_persistence.rs`.
+**Tests:** `make test` / `cargo test` — 37 unit tests in `src/` plus 2 integration tests in `tests/settings_persistence.rs`.
 
 ## Code Conventions & Common Patterns
 
@@ -91,7 +91,7 @@ make clean # cargo clean
 |---|---|
 | `src/main.rs` | Entry point — elevation, single-instance, notification init, tray/hotkey setup, GPUI launch |
 | `src/app.rs` | Core application state, memory refresh loop, optimization, window hide/restore, hotkey recording |
-| `src/tray.rs` | Tray icon install, tooltip/menu sync, command dispatch |
+| `src/tray.rs` | Tray icon install, cleanup spin animation, tooltip/menu sync, command dispatch |
 | `src/win32/hotkey.rs` | `RegisterHotKey` in dedicated thread; sends `TrayCommand::Optimize` |
 | `src/win32/notification.rs` | Windows Toast + Start Menu shortcut for AppUserModelID |
 | `src/log.rs` | Optional `App.log` file output with timestamp-based line retention |
@@ -127,9 +127,9 @@ Implemented since earlier docs (do **not** list as unimplemented):
 - `show_optimization_notifications` — Windows Toast on optimize start/complete
 - `cleanup_hotkey_enabled` / `cleanup_hotkey` — global hotkey via `RegisterHotKey`
 
-## Tray Icon Blink During Cleanup
+## Tray Icon Spin During Cleanup
 
-While `run_optimize` is in progress, `tray::start_spin()` rotates the tray icon in 90° steps every 120ms (`rotate_quarters` + `imageops`); `tray::stop_spin()` restores the upright icon. This avoids Windows `CreateIcon` transparency artifacts from blink/hide approaches.
+While `run_optimize` is in progress, `tray::start_spin()` posts `TrayCommand::SetSpinFrame` ticks every 120ms; the GPUI thread applies them via `set_icon`. Do not call `TrayIcon::set_icon` from background threads — `tray-icon` requires the Win32 tray window thread.
 
 ## Runtime / Tooling Preferences
 

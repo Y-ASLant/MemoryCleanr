@@ -156,7 +156,7 @@ src/
 ├── optimize.rs          # 8 种清理区域与 NtSetSystemInformation 调用
 ├── privileges.rs        # Windows 特权提升
 ├── settings.rs          # TOML 配置读写
-├── tray.rs              # 系统托盘图标、Tooltip、菜单、清理过程显隐闪烁
+├── tray.rs              # 系统托盘图标、Tooltip、菜单、清理过程旋转动画
 ├── version.rs           # 版本常量
 ├── win32/               # Windows API 封装
 │   ├── hotkey.rs        # RegisterHotKey 全局热键（独立消息循环线程）

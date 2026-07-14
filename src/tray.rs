@@ -1,8 +1,8 @@
 use rust_i18n::t;
 
+use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, Ordering};
 use std::sync::mpsc::Sender;
-use std::sync::OnceLock;
 use std::thread;
 use std::time::Duration;
 
@@ -17,7 +17,8 @@ use crate::memory::MemorySection;
 const SPIN_STEP_MS: u64 = 120;
 
 static TRAY: AtomicPtr<Tray> = AtomicPtr::new(std::ptr::null_mut());
-static ICON_SOURCE: OnceLock<RgbaImage> = OnceLock::new();
+static ICON_FRAMES: OnceLock<[RgbaImage; 4]> = OnceLock::new();
+static CMD_TX: OnceLock<Sender<TrayCommand>> = OnceLock::new();
 static SPIN_GENERATION: AtomicU32 = AtomicU32::new(0);
 static SPIN_ACTIVE: AtomicBool = AtomicBool::new(false);
 
@@ -35,10 +36,13 @@ pub enum TrayCommand {
     /// Global hotkey (`RegisterHotKey`) triggered memory cleanup.
     Optimize,
     MenuAction(String),
+    /// Tray icon spin animation frame (0 = upright). Handled on the GPUI thread only.
+    SetSpinFrame(u32),
 }
 
 impl Tray {
     pub fn install(tx: Sender<TrayCommand>) -> Result<(), Box<dyn std::error::Error>> {
+        let _ = CMD_TX.set(tx.clone());
         install_event_handlers(tx);
 
         let optimize = MenuItem::with_id("optimize", t!("tray.optimize"), true, None);
@@ -52,7 +56,7 @@ impl Tray {
 
         let source = load_icon_source();
         let (width, height) = source.dimensions();
-        let _ = ICON_SOURCE.set(source.clone());
+        let _ = ICON_FRAMES.set(build_icon_frames(&source));
 
         let tray_icon = TrayIconBuilder::new()
             .with_menu(Box::new(menu))
@@ -103,13 +107,23 @@ pub(crate) fn rotate_quarters(source: &RgbaImage, quarters: u32) -> RgbaImage {
     }
 }
 
+/// Build the four 90° rotation frames once at tray install.
+fn build_icon_frames(source: &RgbaImage) -> [RgbaImage; 4] {
+    [
+        rotate_quarters(source, 0),
+        rotate_quarters(source, 1),
+        rotate_quarters(source, 2),
+        rotate_quarters(source, 3),
+    ]
+}
+
 fn icon_at_rotation(quarters: u32) -> Icon {
-    let Some(source) = ICON_SOURCE.get() else {
+    let Some(frames) = ICON_FRAMES.get() else {
         return create_fallback_icon();
     };
-    let rotated = rotate_quarters(source, quarters);
-    let (width, height) = rotated.dimensions();
-    icon_from_rgba(rotated.into_raw(), width, height)
+    let frame = &frames[(quarters % 4) as usize];
+    let (width, height) = frame.dimensions();
+    icon_from_rgba(frame.clone().into_raw(), width, height)
 }
 
 fn set_tray_icon_rotation(quarters: u32) {
@@ -122,7 +136,9 @@ fn set_tray_icon_rotation(quarters: u32) {
 pub fn stop_spin() {
     SPIN_GENERATION.fetch_add(1, Ordering::Relaxed);
     SPIN_ACTIVE.store(false, Ordering::Relaxed);
-    set_tray_icon_rotation(0);
+    if let Some(tx) = CMD_TX.get() {
+        let _ = tx.send(TrayCommand::SetSpinFrame(0));
+    }
 }
 
 pub fn start_spin() {
@@ -141,13 +157,13 @@ pub fn start_spin() {
                     break;
                 }
 
-                set_tray_icon_rotation(quarters);
+                if let Some(tx) = CMD_TX.get() {
+                    let _ = tx.send(TrayCommand::SetSpinFrame(quarters));
+                }
                 quarters = quarters.wrapping_add(1);
 
                 thread::sleep(Duration::from_millis(SPIN_STEP_MS));
             }
-            SPIN_ACTIVE.store(false, Ordering::Relaxed);
-            set_tray_icon_rotation(0);
         })
         .ok();
 }
@@ -272,6 +288,11 @@ pub fn dispatch_command(
         }
         TrayCommand::Optimize => app.run_optimize(cx),
         TrayCommand::MenuAction(action) => app.handle_tray_action(&action, cx),
+        TrayCommand::SetSpinFrame(quarters) => {
+            if quarters == 0 || SPIN_ACTIVE.load(Ordering::Relaxed) {
+                set_tray_icon_rotation(quarters);
+            }
+        }
     }
 }
 
@@ -292,8 +313,12 @@ mod tests {
     }
 
     fn sample_icon() -> RgbaImage {
-        RgbaImage::from_raw(2, 2, vec![255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 0, 0, 0, 255])
-            .expect("sample icon")
+        RgbaImage::from_raw(
+            2,
+            2,
+            vec![255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 0, 0, 0, 255],
+        )
+        .expect("sample icon")
     }
 
     #[test]
