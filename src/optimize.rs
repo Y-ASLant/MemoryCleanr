@@ -112,13 +112,11 @@ pub fn step_plan(areas: MemoryAreas, excluded_processes: &[String]) -> Result<St
                 MemoryAreas::SYSTEM_FILE_CACHE => Box::new(optimize_system_file_cache),
                 MemoryAreas::MODIFIED_PAGE_LIST => Box::new(optimize_modified_page_list),
                 MemoryAreas::STANDBY_LIST => Box::new(|| optimize_standby_list(false)),
-                MemoryAreas::STANDBY_LIST_LOW_PRIORITY => {
-                    Box::new(|| optimize_standby_list(true))
-                }
+                MemoryAreas::STANDBY_LIST_LOW_PRIORITY => Box::new(|| optimize_standby_list(true)),
                 MemoryAreas::COMBINED_PAGE_LIST => Box::new(optimize_combined_page_list),
                 MemoryAreas::MODIFIED_FILE_CACHE => Box::new(optimize_modified_file_cache),
                 MemoryAreas::REGISTRY_CACHE => Box::new(optimize_registry_cache),
-                _ => Box::new(|| Ok(())),
+                _ => unreachable!("all defined MemoryAreas variants in OPTIMIZE_STEPS are covered"),
             };
             (label, run)
         })

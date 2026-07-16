@@ -253,9 +253,8 @@ mod tests {
 
     #[test]
     fn normalize_excluded_processes_dedupes_and_strips_exe() {
-        let settings = Settings::from_toml(
-            r#"excluded_processes = ["Chrome.exe", "chrome", "  Firefox  "]"#,
-        );
+        let settings =
+            Settings::from_toml(r#"excluded_processes = ["Chrome.exe", "chrome", "  Firefox  "]"#);
         assert_eq!(
             settings.excluded_processes,
             vec!["chrome".to_string(), "firefox".to_string()]

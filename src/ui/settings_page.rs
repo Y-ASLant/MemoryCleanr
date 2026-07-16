@@ -20,13 +20,12 @@ use crate::app::MemoryCleanerApp;
 use crate::optimize::MemoryAreas;
 use crate::ui::layout::{
     CLEANUP_BUTTON_H, EXCLUSION_LIST_PADDING, EXCLUSION_LIST_ROW_GAP, EXCLUSION_ROW_HEIGHT,
-    PROCESS_PICKER_MENU_MAX_H, SECTION_GAP, process_exclusion_list_max_height,
+    EXCLUSION_SELECTOR_H, PROCESS_PICKER_MENU_MAX_H, SECTION_GAP,
+    process_exclusion_list_max_height,
 };
-
-const EXCLUSION_REMOVE_BTN: f32 = 22.;
-const EXCLUSION_SELECTOR_H: f32 = 32.;
 use crate::win32::hotkey::HotkeyBinding;
 
+const EXCLUSION_REMOVE_BTN: f32 = 22.;
 const ROW_GAP: f32 = 6.;
 const BUTTON_STATUS_TRUNCATE_CHARS: usize = 24;
 
@@ -137,13 +136,12 @@ fn render_process_exclusion_row(
     index: usize,
     name: &str,
     app: &MemoryCleanerApp,
-    foreground: Hsla,
-    danger: Hsla,
     cx: &mut Context<MemoryCleanerApp>,
 ) -> impl IntoElement {
     let name = name.to_string();
     let remove_id = SharedString::from(format!("process-exclusion-remove-{index}"));
     let label = name.clone();
+    let theme = cx.theme();
 
     h_flex()
         .w_full()
@@ -155,7 +153,7 @@ fn render_process_exclusion_row(
         .child(
             Label::new(label)
                 .text_sm()
-                .text_color(foreground)
+                .text_color(theme.foreground)
                 .flex_1()
                 .min_w_0()
                 .truncate(),
@@ -177,7 +175,7 @@ fn render_process_exclusion_row(
                         .flex()
                         .items_center()
                         .justify_center()
-                        .text_color(danger)
+                        .text_color(theme.danger)
                         .child(Icon::new(IconName::CircleX).small()),
                 );
             if app.is_optimizing {
@@ -190,14 +188,15 @@ fn render_process_exclusion_row(
 fn render_process_exclusion_list(
     app: &MemoryCleanerApp,
     excluded: &[String],
-    border: Hsla,
-    muted: Hsla,
-    foreground: Hsla,
-    danger: Hsla,
     cx: &mut Context<MemoryCleanerApp>,
 ) -> impl IntoElement {
     let list_height = process_exclusion_list_max_height();
+    // Extract theme values before the mutable borrow of cx in the loop.
     let radius = cx.theme().radius;
+    let border = cx.theme().border;
+    let muted_fg = cx.theme().muted_foreground;
+    let empty_fg = cx.theme().foreground.opacity(0.55);
+
     let mut list = v_flex().w_full().gap(px(EXCLUSION_LIST_ROW_GAP));
     if excluded.is_empty() {
         list = list.child(
@@ -210,14 +209,12 @@ fn render_process_exclusion_list(
                 .child(
                     Label::new(t!("settings.process_exclusion_empty").to_string())
                         .text_sm()
-                        .text_color(foreground.opacity(0.55)),
+                        .text_color(empty_fg),
                 ),
         );
     } else {
         for (index, name) in excluded.iter().enumerate() {
-            list = list.child(render_process_exclusion_row(
-                index, name, app, foreground, danger, cx,
-            ));
+            list = list.child(render_process_exclusion_row(index, name, app, cx));
         }
     }
 
@@ -228,7 +225,7 @@ fn render_process_exclusion_list(
         .rounded(radius)
         .border_1()
         .border_color(border)
-        .bg(muted.opacity(0.06))
+        .bg(muted_fg.opacity(0.06))
         .p(px(EXCLUSION_LIST_PADDING))
         .overflow_y_scrollbar()
         .child(list)
@@ -236,10 +233,6 @@ fn render_process_exclusion_list(
 
 fn render_process_exclusion(
     app: &MemoryCleanerApp,
-    border: Hsla,
-    muted: Hsla,
-    foreground: Hsla,
-    danger: Hsla,
     cx: &mut Context<MemoryCleanerApp>,
 ) -> impl IntoElement {
     let weak = cx.weak_entity();
@@ -255,9 +248,7 @@ fn render_process_exclusion(
     v_flex()
         .w_full()
         .gap(px(crate::ui::layout::EXCLUSION_FOOTER_GAP))
-        .child(render_process_exclusion_list(
-            app, &excluded, border, muted, foreground, danger, cx,
-        ))
+        .child(render_process_exclusion_list(app, &excluded, cx))
         .child(
             h_flex()
                 .w_full()
@@ -281,16 +272,20 @@ fn render_process_exclusion(
                                 let name = name.clone();
                                 let checked = pick.as_deref() == Some(name.as_str());
                                 let weak = weak.clone();
-                                menu.item(PopupMenuItem::new(name.clone()).checked(checked).on_click(
-                                    move |_, _, cx| {
-                                        let _ = weak.update(cx, |app, cx| {
-                                            app.set_process_exclusion_pick(Some(name.clone()), cx);
-                                        });
-                                    },
-                                ))
+                                menu.item(
+                                    PopupMenuItem::new(name.clone()).checked(checked).on_click(
+                                        move |_, _, cx| {
+                                            let _ = weak.update(cx, |app, cx| {
+                                                app.set_process_exclusion_pick(
+                                                    Some(name.clone()),
+                                                    cx,
+                                                );
+                                            });
+                                        },
+                                    ),
+                                )
                             });
-                            menu.scrollable(true)
-                                .max_h(px(PROCESS_PICKER_MENU_MAX_H))
+                            menu.scrollable(true).max_h(px(PROCESS_PICKER_MENU_MAX_H))
                         })
                 })
                 .child({
@@ -304,11 +299,7 @@ fn render_process_exclusion(
                         .on_click(cx.listener(|app, _, _, cx| {
                             app.add_excluded_process(cx);
                         }))
-                        .child(
-                            Label::new("+")
-                                .text_sm()
-                                .font_weight(FontWeight::SEMIBOLD),
-                        );
+                        .child(Label::new("+").text_sm().font_weight(FontWeight::SEMIBOLD));
                     if !can_add {
                         button = button.disabled(true);
                     }
@@ -936,9 +927,6 @@ fn render_settings_details(
     muted: Hsla,
     cx: &mut Context<MemoryCleanerApp>,
 ) -> impl IntoElement {
-    let foreground = cx.theme().foreground;
-    let danger = cx.theme().danger;
-    let border = cx.theme().border;
     v_flex()
         .id("settings-details-panel")
         .w_full()
@@ -948,7 +936,7 @@ fn render_settings_details(
             "process-exclusion-card",
             IconName::CircleX,
             t!("settings.process_exclusion").to_string(),
-            render_process_exclusion(app, border, muted, foreground, danger, cx),
+            render_process_exclusion(app, cx),
         ))
         .child(render_settings_card(
             "cleanup-areas-card",

@@ -25,7 +25,7 @@ pub const EXCLUSION_ROW_HEIGHT: f32 = 26.;
 pub const EXCLUSION_LIST_ROW_GAP: f32 = 4.;
 pub const EXCLUSION_LIST_PADDING: f32 = 4.;
 pub const EXCLUSION_FOOTER_GAP: f32 = 6.;
-const EXCLUSION_SELECTOR_H: f32 = 32.;
+pub const EXCLUSION_SELECTOR_H: f32 = 32.;
 const EXCLUSION_EMPTY_H: f32 = 24.;
 /// 提示条 + 4 行 checkbox 共 5 项，`v_flex().gap(6)` 产生 4 个间距。
 const CLEANUP_ROW_GAPS: f32 = SECTION_GAP * CLEANUP_ROWS;
@@ -45,21 +45,18 @@ pub fn memory_section_height() -> f32 {
         + MEMORY_SUMMARY_H
 }
 
-pub fn cleanup_section_height(content_padding: f32) -> f32 {
+pub fn cleanup_section_height() -> f32 {
     let cleanup_areas = section_card_height(
-        content_padding,
         HINT_H + SECTION_GAP + CHECKBOX_ROW_H * CLEANUP_ROWS + CLEANUP_ROW_GAPS,
     );
     let exclusion_list = process_exclusion_list_max_height();
-    let process_exclusion = section_card_height(
-        content_padding,
-        exclusion_list + EXCLUSION_FOOTER_GAP + EXCLUSION_SELECTOR_H,
-    );
+    let process_exclusion =
+        section_card_height(exclusion_list + EXCLUSION_FOOTER_GAP + EXCLUSION_SELECTOR_H);
 
     process_exclusion + SECTION_GAP + cleanup_areas
 }
 
-fn section_card_height(_content_padding: f32, body: f32) -> f32 {
+fn section_card_height(body: f32) -> f32 {
     CARD_BORDER + GROUP_BOX_OUTLINE_PADDING_V + SECTION_TITLE_H + SECTION_GAP + body
 }
 
@@ -86,7 +83,7 @@ pub fn collapsed_window_height(content_padding: f32) -> f32 {
         + COLLAPSED_FOOTER_PADDING_GUARD
 }
 
-pub fn expanded_window_height(_content_padding: f32) -> f32 {
+pub fn expanded_window_height() -> f32 {
     680.
 }
 
@@ -97,7 +94,7 @@ mod tests {
     #[test]
     fn expanded_window_is_taller_than_collapsed() {
         let collapsed = collapsed_window_height(6.);
-        let expanded = expanded_window_height(6.);
+        let expanded = expanded_window_height();
         assert!(expanded > collapsed);
     }
 }

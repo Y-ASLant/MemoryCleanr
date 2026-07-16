@@ -97,12 +97,12 @@ pub fn empty_working_sets_except(excluded: &[String]) -> Result<()> {
         }
 
         let pid = entry.th32ProcessID;
-        let handle = match unsafe {
-            OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_SET_QUOTA, false, pid)
-        } {
-            Ok(handle) => handle,
-            Err(_) => return false,
-        };
+        let handle =
+            match unsafe { OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_SET_QUOTA, false, pid) }
+            {
+                Ok(handle) => handle,
+                Err(_) => return false,
+            };
 
         let result = unsafe { K32EmptyWorkingSet(handle) };
         if !result.as_bool() {
