@@ -69,7 +69,7 @@ cargo run --release
 make clean # cargo clean
 ```
 
-**Tests:** `make test` / `cargo test` — 37 unit tests in `src/` plus 2 integration tests in `tests/settings_persistence.rs`.
+**Tests:** `make test` / `cargo test` — 41 unit tests in `src/` plus 2 integration tests in `tests/settings_persistence.rs`.
 
 ## Code Conventions & Common Patterns
 
@@ -107,7 +107,7 @@ make clean # cargo clean
 
 ## UI Layout Notes
 
-- **Window size:** fixed width 520px; collapsed height ~294px, expanded ~456px (`src/app.rs` + `src/ui/layout.rs`).
+- **Window size:** fixed width 520px; collapsed height ~294px, expanded ~630px (`src/app.rs` + `src/ui/layout.rs`).
 - **Collapsed view:** memory cards + cleanup button.
 - **Expanded view:** adds cleanup-area checkboxes panel (`settings_page::render_settings_content`).
 - **Window behavior dialog** (always on top, close-to-tray, debug logging, optimization notifications, cleanup hotkey + recording, language): opened from title-bar gear icon; `overlay_closable(false)` — clicking the backdrop does not close it.

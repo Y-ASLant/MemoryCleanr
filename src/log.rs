@@ -18,8 +18,7 @@ pub fn log_msg(msg: &str) {
     unsafe extern "system" {
         fn OutputDebugStringA(lp_output_string: *const u8);
     }
-    let mut bytes = format!("{msg}\n").into_bytes();
-    bytes.push(0);
+    let bytes = format!("{msg}\n\0").into_bytes();
     unsafe {
         OutputDebugStringA(bytes.as_ptr());
     }

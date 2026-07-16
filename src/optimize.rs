@@ -173,11 +173,10 @@ mod tests {
 fn purge_memory_list(command: SystemMemoryListCommand, privilege: &str, what: &str) -> Result<()> {
     enable_privilege(privilege).with_context(|| format!("{what} requires {privilege}"))?;
     unsafe {
+        let mut cmd = command;
         nt_set_system_information(
             InfoClass::MemoryList,
-            (&command as *const SystemMemoryListCommand)
-                .cast_mut()
-                .cast::<core::ffi::c_void>(),
+            std::slice::from_mut(&mut cmd).as_mut_ptr().cast(),
             std::mem::size_of::<SystemMemoryListCommand>() as u32,
         )
     }
