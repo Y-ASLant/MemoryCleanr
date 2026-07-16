@@ -357,6 +357,7 @@ impl MemoryCleanerApp {
             }) {
                 Ok(Ok(())) => {
                     self.window_shown = true;
+                    self.pause_memory_refresh();
                     self.start_memory_refresh(cx);
                     self.sync_tray();
                     return;

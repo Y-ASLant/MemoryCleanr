@@ -54,13 +54,19 @@ pub fn refresh() -> RefreshOutcome {
 fn stop_explorer(failures: &mut Vec<String>) -> Option<()> {
     match crate::win32::process::kill_process_by_name("explorer.exe") {
         Err(e) => {
-            failures.push(format!("结束 explorer 失败: {e:#}"));
+            failures.push(
+                t!(
+                    "icon_cache.log.kill_explorer_failed",
+                    error = format!("{e:#}")
+                )
+                .to_string(),
+            );
             None
         }
         Ok(0) => Some(()),
         Ok(_) => {
             if !crate::win32::process::wait_for_process_exit("explorer.exe", 5000) {
-                failures.push("explorer 退出超时".into());
+                failures.push(t!("icon_cache.log.explorer_exit_timeout").to_string());
             }
             Some(())
         }
@@ -69,7 +75,7 @@ fn stop_explorer(failures: &mut Vec<String>) -> Option<()> {
 
 fn clean_files(failures: &mut Vec<String>) {
     let Some(local) = std::env::var_os("LOCALAPPDATA").map(PathBuf::from) else {
-        failures.push("LOCALAPPDATA 未设置".into());
+        failures.push(t!("icon_cache.log.localappdata_unset").to_string());
         return;
     };
 
@@ -90,7 +96,13 @@ fn restart_explorer(failures: &mut Vec<String>) -> bool {
             true
         }
         Err(e) => {
-            failures.push(format!("重启 explorer 失败: {e}"));
+            failures.push(
+                t!(
+                    "icon_cache.log.restart_explorer_failed",
+                    error = format!("{e}")
+                )
+                .to_string(),
+            );
             false
         }
     }
@@ -115,7 +127,13 @@ fn delete_file(path: &Path, failures: &mut Vec<String>) {
     }
     clear_attrs(path);
     if std::fs::remove_file(path).is_err() {
-        failures.push(format!("删除失败: {}", path.display()));
+        failures.push(
+            t!(
+                "icon_cache.log.delete_failed",
+                path = path.display().to_string()
+            )
+            .to_string(),
+        );
     }
 }
 
@@ -151,7 +169,13 @@ fn delete_reg_value(subkey: &str, value: &str, failures: &mut Vec<String>) {
         }
         let value_wide = to_wide(value);
         if RegDeleteValueW(key, PCWSTR(value_wide.as_ptr())).is_err() {
-            failures.push(format!("删除注册表值 {value} 失败"));
+            failures.push(
+                t!(
+                    "icon_cache.log.delete_reg_value_failed",
+                    value = value.to_string()
+                )
+                .to_string(),
+            );
         }
         let _ = RegCloseKey(key);
     }

@@ -205,6 +205,24 @@ icon_cache.success:
 icon_cache.partial:
   zh-CN: "已刷新，部分缓存未能清理"
   en: "Refreshed, but some cache files could not be cleaned"
+icon_cache.log.kill_explorer_failed:
+  zh-CN: "结束 explorer 失败: %{error}"
+  en: "Failed to terminate Explorer: %{error}"
+icon_cache.log.explorer_exit_timeout:
+  zh-CN: "explorer 退出超时"
+  en: "Explorer exit timed out"
+icon_cache.log.localappdata_unset:
+  zh-CN: "LOCALAPPDATA 未设置"
+  en: "LOCALAPPDATA environment variable not set"
+icon_cache.log.restart_explorer_failed:
+  zh-CN: "重启 explorer 失败: %{error}"
+  en: "Failed to restart Explorer: %{error}"
+icon_cache.log.delete_failed:
+  zh-CN: "删除失败: %{path}"
+  en: "Failed to delete: %{path}"
+icon_cache.log.delete_reg_value_failed:
+  zh-CN: "删除注册表值 %{value} 失败"
+  en: "Failed to delete registry value %{value}"
 
 # Common dialog buttons
 dialog.confirm:

@@ -21,7 +21,8 @@ use crate::app::MemoryCleanerApp;
 use crate::optimize::MemoryAreas;
 use crate::ui::layout::{
     CLEANUP_BUTTON_H, EXCLUSION_LIST_PADDING, EXCLUSION_SELECTOR_H, EXCLUSION_TAG_GAP,
-    PROCESS_PICKER_MENU_MAX_H, SECTION_GAP, process_exclusion_list_max_height,
+    MAIN_CONTENT_PADDING, MAIN_WINDOW_WIDTH, PROCESS_PICKER_MENU_MAX_H, SECTION_GAP,
+    process_exclusion_list_max_height, process_exclusion_selector_width,
 };
 use crate::win32::hotkey::HotkeyBinding;
 
@@ -225,6 +226,10 @@ fn render_process_exclusion(
         .unwrap_or_else(|| t!("settings.process_exclusion_select").to_string());
     let can_add = pick.is_some() && !app.is_optimizing;
     let selector_h = px(EXCLUSION_SELECTOR_H);
+    let selector_w = px(process_exclusion_selector_width(
+        MAIN_WINDOW_WIDTH,
+        MAIN_CONTENT_PADDING,
+    ));
 
     v_flex()
         .w_full()
@@ -265,7 +270,10 @@ fn render_process_exclusion(
                                     ),
                                 )
                             });
-                            menu.scrollable(true).max_h(px(PROCESS_PICKER_MENU_MAX_H))
+                            menu.scrollable(true)
+                                .max_h(px(PROCESS_PICKER_MENU_MAX_H))
+                                .min_w(selector_w)
+                                .max_w(selector_w)
                         })
                 }))
                 .child({

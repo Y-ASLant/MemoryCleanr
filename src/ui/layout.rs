@@ -72,6 +72,24 @@ pub fn process_exclusion_list_max_height() -> f32 {
 /// 进程下拉菜单最大高度（向上展开，避免遮挡下方控件）。
 pub const PROCESS_PICKER_MENU_MAX_H: f32 = 180.;
 
+/// 主窗口固定宽度（与 `app.rs` 中 `WINDOW_WIDTH` 保持一致）。
+pub const MAIN_WINDOW_WIDTH: f32 = 520.;
+/// 主窗口内容区内边距（与 `app.rs` 中 `CONTENT_PADDING` 保持一致）。
+pub const MAIN_CONTENT_PADDING: f32 = 6.;
+const GROUP_BOX_OUTLINE_BORDER: f32 = 2.;
+const GROUP_BOX_CONTENT_PADDING_H: f32 = 16.; // outline GroupBox `p_2()` 左右各 8px
+const PROCESS_SELECTOR_ROW_GAP: f32 = 12.; // `gap_3`
+
+/// 进程选择下拉按钮的可用宽度（与布局公式一致，供 PopupMenu 对齐触发器）。
+pub fn process_exclusion_selector_width(window_width: f32, content_padding: f32) -> f32 {
+    window_width
+        - content_padding * 2.
+        - GROUP_BOX_OUTLINE_BORDER
+        - GROUP_BOX_CONTENT_PADDING_H
+        - PROCESS_SELECTOR_ROW_GAP
+        - EXCLUSION_SELECTOR_H
+}
+
 pub fn collapsed_window_height(content_padding: f32) -> f32 {
     TITLE_BAR_H
         + content_padding
@@ -95,6 +113,14 @@ mod tests {
         let collapsed = collapsed_window_height(6.);
         let expanded = expanded_window_height(6.);
         assert!(expanded > collapsed);
+    }
+
+    #[test]
+    fn process_exclusion_selector_width_matches_row_layout() {
+        assert_eq!(
+            process_exclusion_selector_width(MAIN_WINDOW_WIDTH, MAIN_CONTENT_PADDING),
+            446.
+        );
     }
 
     #[test]
