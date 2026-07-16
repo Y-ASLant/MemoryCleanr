@@ -1,0 +1,69 @@
+# 更新日志
+
+本文件记录 Memory Cleanr 的版本更新，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
+
+**编写约定**（详见 `AGENTS.md` → Documentation & Changelog）：每个版本只记录相对上一 tag 的**最终差异**，不记录开发过程中的中间修改或逐步修复。
+
+## [1.0.2] - 2026-07-16
+
+相对 [1.0.1] 的最终变更如下。
+
+### 新增
+
+- **开机自启**：设置中可开启「登录 Windows 后静默启动到系统托盘」，不显示主窗口（`src/win32/startup.rs`）。
+- **进程排除选择器**：列表项显示实例数与内存占用；无法读取内存时显示占位符。
+- **文档**：`README_EN.md`（英文说明）、`docs/API_COMPARISON_MEMREDUCT.md`（与 Mem Reduct 清理 API 对比）。
+
+### 变更
+
+- **已修改文件缓存**：由遍历 `A:`–`Z:` 固定磁盘盘符，改为通过 Mount Manager 枚举 `\??\Volume{GUID}` 并刷写；新增 `src/win32/volume.rs` 统一管理枚举、刷写与结果汇总；至少一个卷刷写成功即视为该步骤成功。
+- **清理进度文案**：已修改文件步骤由显示盘符（如 `C:`）改为显示 `Volume{GUID}`。
+- **进程排除交互**：从进程列表选择后直接加入排除列表，移除中间「待确认」状态。
+- **Release 构建**：`opt-level` 由 `z` 调整为 `s`。
+- **应用图标**：更新 `App.ico` / `App.png`。
+
+## [1.0.1] - 2026-07-16
+
+相对 [1.0.0] 的主要变更：进程排除、全局清理热键（默认 Ctrl+Alt+C）与热键录制、优化完成 Toast、界面国际化、托盘清理动画、图标缓存刷新、调试日志、Windows 10 方形圆角主题等。详见 git history。
+
+## [1.0.0] - 2026-07-11
+
+首个公开发布：8 种内存清理区域、GPUI 界面、系统托盘、管理员提升、设置持久化。
+
+---
+
+# Changelog
+
+Records Memory Cleanr releases. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+**Writing rules** (see `AGENTS.md` → Documentation & Changelog): each release entry covers **only the final diff** vs the previous tag — not intermediate commits or step-by-step fixes during development.
+
+## [1.0.2] - 2026-07-16
+
+Final changes since [1.0.1].
+
+### Added
+
+- **Run at startup** — New setting to launch silently into the system tray after Windows sign-in, without showing the main window (`src/win32/startup.rs`).
+- **Process exclusion picker** — List entries show instance count and memory usage; a placeholder when memory cannot be read.
+- **Documentation** — `README_EN.md` (English readme) and `docs/API_COMPARISON_MEMREDUCT.md` (cleanup API comparison with Mem Reduct).
+
+### Changed
+
+- **Modified file cache** — Volume discovery switched from iterating fixed drive letters `A:`–`Z:` to Mount Manager enumeration of `\??\Volume{GUID}` with flush via `NtCreateFile` / `NtFlushBuffersFile`; new `src/win32/volume.rs` centralizes enumeration, flush, and reporting; the step succeeds when at least one volume flushes successfully.
+- **Cleanup progress text** — Modified-file step now shows `Volume{GUID}` instead of drive letters (e.g. `C:`).
+- **Process exclusion UX** — Selecting a process from the list adds it to the exclusion list immediately; removed the intermediate pending-confirmation state.
+- **Release build** — `opt-level` changed from `z` to `s`.
+- **App icons** — Updated `App.ico` and `App.png`.
+
+## [1.0.1] - 2026-07-16
+
+Since [1.0.0]: process exclusion, global cleanup hotkey (default Ctrl+Alt+C) with recording, post-optimization toast, UI i18n, tray spin animation during cleanup, icon cache refresh, debug logging, Windows 10 square-corner theme, and more. See git history.
+
+## [1.0.0] - 2026-07-11
+
+Initial public release: 8 memory cleanup regions, GPUI UI, system tray, administrator elevation, settings persistence.
+
+[1.0.2]: https://github.com/Y-ASLant/MemoryCleanr/compare/v1.0.1...v1.0.2
+[1.0.1]: https://github.com/Y-ASLant/MemoryCleanr/releases/tag/v1.0.1
+[1.0.0]: https://github.com/Y-ASLant/MemoryCleanr/releases/tag/v1.0.0
