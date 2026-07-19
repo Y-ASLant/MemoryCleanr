@@ -3,12 +3,11 @@ use std::time::{Duration, Instant};
 
 use gpui::prelude::FluentBuilder;
 use gpui::*;
-use gpui_component::{
-    ActiveTheme, Disableable, button::Button, h_flex, label::Label, v_flex,
-};
+use gpui_component::{ActiveTheme, h_flex, label::Label, v_flex};
+use rust_i18n::t;
 use smol::Timer;
 
-use crate::app::{ClipboardShiftAnim, MemoryCleanerApp};
+use crate::app::{ClipboardFilterSlide, ClipboardShiftAnim, MemoryCleanerApp};
 use crate::clipboard::ContentType;
 use crate::ui::clipboard_item_card::{
     DragClipboardItem, ITEM_HEIGHT, render_clipboard_item,
@@ -16,8 +15,8 @@ use crate::ui::clipboard_item_card::{
 
 /// Clipboard-only window height (width matches the main 520px window).
 pub const CLIPBOARD_WINDOW_HEIGHT: f32 = 600.;
-/// Filter bar height.
-const FILTER_BAR_H: f32 = 34.;
+/// Top toolbar: sliding segment track (ElegantClipboard-style).
+const TOOLBAR_H: f32 = 44.;
 /// Status bar height.
 const STATUS_BAR_H: f32 = 28.;
 /// Vertical gap between cards.
@@ -29,6 +28,9 @@ const SHIFT_DURATION: Duration = Duration::from_millis(120);
 const SHIFT_TICK: Duration = Duration::from_millis(8);
 /// Exit fade + sibling collapse before the row is removed from data.
 pub const DELETE_ANIM_MS: u64 = 160;
+/// Segment indicator slide (ElegantClipboard `duration-200 ease-out`).
+const FILTER_SLIDE_DURATION: Duration = Duration::from_millis(200);
+const FILTER_SEGMENT_COUNT: f32 = 3.;
 
 /// Render the clipboard panel (full window content when clipboard mode is active).
 pub fn render_clipboard_panel(
@@ -50,51 +52,7 @@ pub fn render_clipboard_panel(
         .min_h_0()
         .w_full()
         .h_full()
-        .child(
-            h_flex()
-                .w_full()
-                .h(px(FILTER_BAR_H))
-                .flex_shrink_0()
-                .px_3()
-                .gap_2()
-                .items_center()
-                .child(filter_button(
-                    cx,
-                    "clipboard-filter-all",
-                    "全部",
-                    active_filter.is_none(),
-                    |app, cx| app.set_clipboard_filter(None, cx),
-                ))
-                .child(filter_button(
-                    cx,
-                    "clipboard-filter-text",
-                    "文本",
-                    active_filter == Some(ContentType::Text),
-                    |app, cx| app.set_clipboard_filter(Some(ContentType::Text), cx),
-                ))
-                .child(filter_button(
-                    cx,
-                    "clipboard-filter-file",
-                    "文件",
-                    active_filter == Some(ContentType::File),
-                    |app, cx| app.set_clipboard_filter(Some(ContentType::File), cx),
-                ))
-                .child(div().flex_1())
-                .child({
-                    let unpinned = app
-                        .clipboard_items
-                        .iter()
-                        .filter(|item| !item.is_pinned)
-                        .count();
-                    Button::new("clipboard-clear")
-                        .label("清空")
-                        .text_xs()
-                        .disabled(unpinned == 0)
-                        .on_click(cx.listener(|app, _, window, cx| {
-                            app.open_clipboard_clear_confirm(window, cx);
-                        }))
-                }),
-        )
+        .child(render_clipboard_toolbar(app, active_filter, cx))
         .child({
             if total == 0 {
                 v_flex()
@@ -452,16 +410,197 @@ fn update_drop_target_from_pointer(
     }
 }
 
-fn filter_button(
+/// ElegantClipboard-style segment track with a sliding white indicator.
+fn render_clipboard_toolbar(
+    app: &MemoryCleanerApp,
+    active_filter: Option<ContentType>,
+    cx: &mut Context<MemoryCleanerApp>,
+) -> impl IntoElement {
+    let theme = cx.theme();
+    let radius = theme.radius;
+    let muted_bg = theme.muted;
+    let background = theme.background;
+    let slide = sample_filter_slide(app, Instant::now());
+    let indicator_left = slide / FILTER_SEGMENT_COUNT;
+
+    let seg_all = filter_segment(
+        cx,
+        "clipboard-filter-all",
+        t!("clipboard.filter_all").to_string(),
+        active_filter.is_none(),
+        |app, cx| app.set_clipboard_filter(None, cx),
+    );
+    let seg_text = filter_segment(
+        cx,
+        "clipboard-filter-text",
+        t!("clipboard.filter_text").to_string(),
+        active_filter == Some(ContentType::Text),
+        |app, cx| app.set_clipboard_filter(Some(ContentType::Text), cx),
+    );
+    let seg_file = filter_segment(
+        cx,
+        "clipboard-filter-file",
+        t!("clipboard.filter_file").to_string(),
+        active_filter == Some(ContentType::File),
+        |app, cx| app.set_clipboard_filter(Some(ContentType::File), cx),
+    );
+
+    h_flex()
+        .w_full()
+        .h(px(TOOLBAR_H))
+        .flex_shrink_0()
+        .px_2()
+        .pt_2()
+        .pb_1()
+        .items_center()
+        .child(
+            div()
+                .id("clipboard-filter-track")
+                .w_full()
+                .h(px(32.))
+                .p(px(2.))
+                .rounded(radius)
+                .bg(muted_bg)
+                .child(
+                    div()
+                        .relative()
+                        .size_full()
+                        .child(
+                            div()
+                                .absolute()
+                                .top(px(0.))
+                                .bottom(px(0.))
+                                .left(relative(indicator_left))
+                                .w(relative(1. / FILTER_SEGMENT_COUNT))
+                                .rounded(radius)
+                                .bg(background)
+                                .shadow(vec![BoxShadow {
+                                    color: hsla(0., 0., 0., 0.08),
+                                    offset: point(px(0.), px(1.)),
+                                    blur_radius: px(2.),
+                                    spread_radius: px(0.),
+                                    inset: false,
+                                }]),
+                        )
+                        .child(
+                            h_flex()
+                                .relative()
+                                .size_full()
+                                .child(seg_all)
+                                .child(seg_text)
+                                .child(seg_file),
+                        ),
+                ),
+        )
+}
+
+fn filter_index(filter: Option<ContentType>) -> f32 {
+    match filter {
+        None => 0.,
+        Some(ContentType::Text) => 1.,
+        Some(ContentType::File) => 2.,
+    }
+}
+
+fn sample_filter_slide(app: &MemoryCleanerApp, now: Instant) -> f32 {
+    let Some(anim) = &app.clipboard_filter_slide else {
+        return filter_index(app.clipboard_filter);
+    };
+    let t = now
+        .saturating_duration_since(anim.start)
+        .as_secs_f32()
+        / FILTER_SLIDE_DURATION.as_secs_f32();
+    if t >= 1. {
+        return anim.to;
+    }
+    let e = 1.0 - (1.0 - t.clamp(0., 1.)) * (1.0 - t.clamp(0., 1.));
+    anim.from + (anim.to - anim.from) * e
+}
+
+/// Start the segment indicator sliding toward `filter`.
+pub fn begin_filter_slide(
+    app: &mut MemoryCleanerApp,
+    filter: Option<ContentType>,
+    cx: &mut Context<MemoryCleanerApp>,
+) {
+    let now = Instant::now();
+    let from = sample_filter_slide(app, now);
+    let to = filter_index(filter);
+    if (from - to).abs() < 0.001 {
+        app.clipboard_filter_slide = None;
+        return;
+    }
+    app.clipboard_filter_slide = Some(ClipboardFilterSlide {
+        from,
+        to,
+        start: now,
+    });
+    start_filter_slide_ticker(app, cx);
+}
+
+fn start_filter_slide_ticker(
+    app: &mut MemoryCleanerApp,
+    cx: &mut Context<MemoryCleanerApp>,
+) {
+    app.clipboard_filter_tick_gen = app.clipboard_filter_tick_gen.wrapping_add(1);
+    let tick_gen = app.clipboard_filter_tick_gen;
+    cx.spawn(async move |this, cx| {
+        loop {
+            Timer::after(SHIFT_TICK).await;
+            let keep = this
+                .update(cx, |app, cx| {
+                    if app.clipboard_filter_tick_gen != tick_gen {
+                        return false;
+                    }
+                    let Some(anim) = &app.clipboard_filter_slide else {
+                        return false;
+                    };
+                    let elapsed = Instant::now().saturating_duration_since(anim.start);
+                    if elapsed >= FILTER_SLIDE_DURATION {
+                        app.clipboard_filter_slide = None;
+                        cx.notify();
+                        return false;
+                    }
+                    cx.notify();
+                    true
+                })
+                .unwrap_or(false);
+            if !keep {
+                break;
+            }
+        }
+    })
+    .detach();
+}
+
+fn filter_segment(
     cx: &mut Context<MemoryCleanerApp>,
     id: &'static str,
-    label: &'static str,
+    label: String,
     active: bool,
     action: fn(&mut MemoryCleanerApp, &mut Context<MemoryCleanerApp>),
-) -> impl IntoElement {
-    let mut button = Button::new(id).label(label).text_xs();
-    if active {
-        button = button.outline();
-    }
-    button.on_click(cx.listener(move |app, _, _, cx| action(app, cx)))
+) -> impl IntoElement + use<> {
+    let theme = cx.theme();
+    let radius = theme.radius;
+    let fg = if active {
+        theme.foreground
+    } else {
+        theme.muted_foreground
+    };
+    let active_fg = theme.foreground;
+
+    div()
+        .id(id)
+        .flex_1()
+        .h_full()
+        .min_w_0()
+        .px_2()
+        .rounded(radius)
+        .flex()
+        .items_center()
+        .justify_center()
+        .cursor_pointer()
+        .hover(move |style| style.text_color(active_fg))
+        .on_click(cx.listener(move |app, _, _, cx| action(app, cx)))
+        .child(Label::new(label).text_xs().text_color(fg))
 }

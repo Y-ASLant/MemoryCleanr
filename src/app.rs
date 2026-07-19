@@ -163,6 +163,10 @@ pub struct MemoryCleanerApp {
     pub clipboard_items: Vec<crate::clipboard::ClipboardItem>,
     /// Filter clipboard list by content type (`None` = all).
     pub clipboard_filter: Option<crate::clipboard::ContentType>,
+    /// Sliding filter pill tween (ElegantClipboard-style segment indicator).
+    pub clipboard_filter_slide: Option<ClipboardFilterSlide>,
+    /// Bumps to cancel the filter-slide ticker.
+    pub clipboard_filter_tick_gen: u32,
     /// Selected index in clipboard list (for keyboard nav).
     pub clipboard_selected: Option<usize>,
     /// Drop target while dragging to reorder.
@@ -184,6 +188,14 @@ pub struct MemoryCleanerApp {
 /// One card's translateY animation during drag reorder.
 #[derive(Clone, Debug)]
 pub struct ClipboardShiftAnim {
+    pub from: f32,
+    pub to: f32,
+    pub start: Instant,
+}
+
+/// Filter segment indicator position (0 = 全部, 1 = 文本, 2 = 文件).
+#[derive(Clone, Debug)]
+pub struct ClipboardFilterSlide {
     pub from: f32,
     pub to: f32,
     pub start: Instant,
@@ -254,6 +266,8 @@ impl MemoryCleanerApp {
             clipboard_visible: false,
             clipboard_items: Vec::new(),
             clipboard_filter: None,
+            clipboard_filter_slide: None,
+            clipboard_filter_tick_gen: 0,
             clipboard_selected: None,
             clipboard_drop_target_id: None,
             clipboard_dragging_id: None,
@@ -1161,6 +1175,10 @@ impl MemoryCleanerApp {
         filter: Option<crate::clipboard::ContentType>,
         cx: &mut Context<Self>,
     ) {
+        if self.clipboard_filter == filter {
+            return;
+        }
+        crate::ui::clipboard_panel::begin_filter_slide(self, filter, cx);
         self.clipboard_filter = filter;
         self.refresh_clipboard_items();
         cx.notify();

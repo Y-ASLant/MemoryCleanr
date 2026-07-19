@@ -72,6 +72,18 @@ clipboard.clear_confirm_desc:
 clipboard.delete_tooltip:
   zh-CN: "删除"
   en: "Delete"
+clipboard.clear_tooltip:
+  zh-CN: "清空未置顶记录"
+  en: "Clear unpinned items"
+clipboard.filter_all:
+  zh-CN: "全部"
+  en: "All"
+clipboard.filter_text:
+  zh-CN: "文本"
+  en: "Text"
+clipboard.filter_file:
+  zh-CN: "文件"
+  en: "Files"
 
 tray.tooltip:
   zh-CN: "物理内存: %{percent}"
