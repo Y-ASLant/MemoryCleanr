@@ -22,6 +22,20 @@ pub fn clear_our_hwnd() {
     OUR_HWND.store(0, Ordering::Relaxed);
 }
 
+/// Current main window HWND, if known and still valid.
+pub fn our_hwnd() -> Option<HWND> {
+    let raw = OUR_HWND.load(Ordering::Relaxed);
+    if raw == 0 {
+        return None;
+    }
+    let hwnd = HWND(raw as *mut _);
+    if unsafe { IsWindow(Some(hwnd)).as_bool() } {
+        Some(hwnd)
+    } else {
+        None
+    }
+}
+
 /// Save the current foreground window if it is not our own.
 pub fn save_current_focus() {
     let hwnd = unsafe { GetForegroundWindow() };
@@ -38,26 +52,34 @@ pub fn save_current_focus() {
 
 /// Restore the previously saved foreground window (best effort).
 pub fn restore_previous_foreground() -> bool {
-    let prev = PREV_FOREGROUND_HWND.load(Ordering::Relaxed);
-    if prev == 0 {
-        crate::log_msg("[focus] no previous foreground hwnd saved");
+    focus_hwnd(PREV_FOREGROUND_HWND.load(Ordering::Relaxed), "previous")
+}
+
+/// Bring our main window back to the foreground after paste.
+pub fn restore_our_foreground() -> bool {
+    focus_hwnd(OUR_HWND.load(Ordering::Relaxed), "ours")
+}
+
+fn focus_hwnd(raw: isize, label: &str) -> bool {
+    if raw == 0 {
+        crate::log_msg(&format!("[focus] no {label} hwnd saved"));
         return false;
     }
-    let hwnd = HWND(prev as *mut _);
+    let hwnd = HWND(raw as *mut _);
     unsafe {
         if !IsWindow(Some(hwnd)).as_bool() {
-            crate::log_msg(&format!("[focus] previous hwnd {prev:#x} invalid"));
+            crate::log_msg(&format!("[focus] {label} hwnd {raw:#x} invalid"));
             return false;
         }
         let current = GetForegroundWindow();
-        if current.0 as isize == prev {
+        if current.0 as isize == raw {
             return true;
         }
         // Nudge the input queue so SetForegroundWindow is more likely to succeed.
         let _ = GetWindowThreadProcessId(hwnd, None);
         let ok = SetForegroundWindow(hwnd).as_bool();
         if !ok {
-            crate::log_msg(&format!("[focus] SetForegroundWindow({prev:#x}) failed"));
+            crate::log_msg(&format!("[focus] SetForegroundWindow({label} {raw:#x}) failed"));
         }
         ok
     }

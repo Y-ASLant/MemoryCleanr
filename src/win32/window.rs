@@ -4,8 +4,9 @@ use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
     GWL_EXSTYLE, GWL_STYLE, GetWindowLongPtrW, HWND_NOTOPMOST, HWND_TOPMOST, IsIconic,
-    SHOW_WINDOW_CMD, SW_RESTORE, SW_SHOW, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
-    SetWindowLongPtrW, SetWindowPos, ShowWindow, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW, WS_MAXIMIZEBOX,
+    SHOW_WINDOW_CMD, SW_HIDE, SW_RESTORE, SW_SHOW, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE,
+    SWP_NOSIZE, SetWindowLongPtrW, SetWindowPos, ShowWindow, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
+    WS_MAXIMIZEBOX,
 };
 
 fn show_window(hwnd: HWND, cmd: SHOW_WINDOW_CMD) -> Result<()> {
@@ -85,6 +86,16 @@ pub fn set_always_on_top(window: &Window, on_top: bool) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Temporarily hide a window without destroying it (for paste focus hand-off).
+pub fn hide_hwnd(hwnd: HWND) {
+    let _ = show_window(hwnd, SW_HIDE);
+}
+
+/// Show a previously hidden window again.
+pub fn show_hwnd(hwnd: HWND) {
+    let _ = show_window(hwnd, SW_SHOW);
 }
 
 /// Remove the maximize/restore button from the window title bar.

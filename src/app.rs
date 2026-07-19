@@ -1158,40 +1158,22 @@ impl MemoryCleanerApp {
             return;
         };
 
-        // Write clipboard first, then hide + restore previous focus, then paste.
-        // Order matches ElegantClipboard; SendInput alone fails under UIPI when elevated.
-        cx.spawn(async move |this, cx| {
-            let write = smol::unblock({
-                let item = item.clone();
-                move || {
-                    crate::clipboard::monitor::pause_monitor(Duration::from_millis(800));
-                    match item.content_type {
-                        crate::clipboard::ContentType::Text => item
-                            .text_content
-                            .as_deref()
-                            .map(crate::win32::clipboard::set_text)
-                            .unwrap_or_else(|| Err(anyhow::anyhow!("missing text content"))),
-                        crate::clipboard::ContentType::File => item
-                            .file_paths
-                            .as_deref()
-                            .map(crate::win32::clipboard::set_files)
-                            .unwrap_or_else(|| Err(anyhow::anyhow!("missing file paths"))),
-                    }
-                }
-            })
-            .await;
-
-            if let Err(e) = write {
-                crate::log_msg(&format!("[clipboard] set clipboard failed: {e:#}"));
-                return;
-            }
-
-            let _ = this.update(cx, |app, cx| {
-                app.hide_to_tray(cx);
-            });
-
-            let paste = smol::unblock(|| {
-                std::thread::sleep(Duration::from_millis(80));
+        // Temporarily hide (not destroy) so paste can reach the previous app, then show again.
+        cx.spawn(async move |_this, _cx| {
+            let paste = smol::unblock(move || {
+                crate::clipboard::monitor::pause_monitor(Duration::from_millis(800));
+                match item.content_type {
+                    crate::clipboard::ContentType::Text => item
+                        .text_content
+                        .as_deref()
+                        .map(crate::win32::clipboard::set_text)
+                        .unwrap_or_else(|| Err(anyhow::anyhow!("missing text content"))),
+                    crate::clipboard::ContentType::File => item
+                        .file_paths
+                        .as_deref()
+                        .map(crate::win32::clipboard::set_files)
+                        .unwrap_or_else(|| Err(anyhow::anyhow!("missing file paths"))),
+                }?;
                 crate::win32::clipboard::paste_to_previous_window()
             })
             .await;

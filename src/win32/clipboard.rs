@@ -108,8 +108,17 @@ pub fn set_files(paths: &[String]) -> Result<()> {
     }
 }
 
-/// Paste into the previously focused window (after our UI has been hidden).
+/// Paste into the previously focused window without destroying our UI.
+///
+/// Temporarily `SW_HIDE`s our window so the target can take focus, pastes, then
+/// shows our window again (state/layout preserved — not a tray close).
 pub fn paste_to_previous_window() -> Result<()> {
+    let our = focus::our_hwnd();
+    if let Some(hwnd) = our {
+        crate::win32::window::hide_hwnd(hwnd);
+    }
+
+    std::thread::sleep(std::time::Duration::from_millis(50));
     let _ = focus::restore_previous_foreground();
     std::thread::sleep(std::time::Duration::from_millis(60));
 
@@ -118,8 +127,7 @@ pub fn paste_to_previous_window() -> Result<()> {
         // Cross-integrity paste: WM_PASTE is not blocked by UIPI the way SendInput is.
         if post_paste(hwnd) {
             crate::log_msg("[clipboard] WM_PASTE posted");
-            // Give the target a moment; some apps still want a key chord.
-            std::thread::sleep(std::time::Duration::from_millis(20));
+            std::thread::sleep(std::time::Duration::from_millis(30));
         } else {
             crate::log_msg("[clipboard] WM_PASTE post failed, trying SendInput");
         }
@@ -129,6 +137,12 @@ pub fn paste_to_previous_window() -> Result<()> {
 
     // Best-effort for elevated targets / apps that ignore WM_PASTE.
     simulate_paste()?;
+    std::thread::sleep(std::time::Duration::from_millis(40));
+
+    if let Some(hwnd) = our {
+        crate::win32::window::show_hwnd(hwnd);
+        let _ = focus::restore_our_foreground();
+    }
     Ok(())
 }
 
