@@ -18,6 +18,8 @@ pub const MAX_DISPLAY_LINES: usize = 4;
 pub const ITEM_HEIGHT: f32 = 96.;
 /// Drag ghost width (matches list content area).
 pub const DRAG_CARD_WIDTH: f32 = 488.;
+/// Line box height for `Label::text_sm()` — icon aligns to the first line only.
+const TEXT_SM_LINE_H: f32 = 20.;
 
 /// Left half: drag reorder zone (pale yellow `#FFF9E6`).
 fn drag_zone_bg() -> Hsla {
@@ -58,39 +60,25 @@ impl Render for DragPreviewCard {
             .rounded_md()
             .cursor_grabbing()
             .child(render_split_card(
-                div()
-                    .size_full()
-                    .bg(drag_zone_bg())
-                    .child(render_zone_column(
-                        t!("clipboard.drag_zone").to_string(),
-                        theme.muted_foreground,
-                        clipped_card_half(
-                            self.content_type,
-                            &self.lines,
-                            &self.time_text,
-                            self.is_pinned,
-                            self.file_count,
-                            CardHalf::Left,
-                            cx,
-                        ),
-                    )),
-                div()
-                    .size_full()
-                    .bg(paste_zone_bg())
-                    .child(render_zone_column(
-                        t!("clipboard.paste_zone").to_string(),
-                        theme.muted_foreground,
-                        clipped_card_half(
-                            self.content_type,
-                            &self.lines,
-                            &self.time_text,
-                            self.is_pinned,
-                            self.file_count,
-                            CardHalf::Right,
-                            cx,
-                        ),
-                    )),
+                div().size_full().bg(drag_zone_bg()),
+                div().size_full().bg(paste_zone_bg()),
             ))
+            .child(
+                div()
+                    .absolute()
+                    .inset_0()
+                    .px_2()
+                    .py_2()
+                    .overflow_hidden()
+                    .child(card_content(
+                        self.content_type,
+                        &self.lines,
+                        &self.time_text,
+                        self.is_pinned,
+                        self.file_count,
+                        cx,
+                    )),
+            )
             .shadow(vec![BoxShadow {
                 color: hsla(0., 0., 0., 0.16),
                 offset: point(px(0.), px(6.)),
@@ -131,9 +119,6 @@ pub fn render_clipboard_item(
     // Same tokens as gpui-component ListItem so hover/press reads clearly.
     let hover_border = theme.primary.opacity(0.55);
     let danger = theme.danger;
-    let drag_zone_label = t!("clipboard.drag_zone").to_string();
-    let paste_zone_label = t!("clipboard.paste_zone").to_string();
-    let zone_caption = theme.muted_foreground;
 
     let time_text = format_time_ago(&item.created_at);
     let item_id = item.id;
@@ -189,11 +174,7 @@ pub fn render_clipboard_item(
                 .absolute()
                 .inset_0()
                 .opacity(zone_opacity)
-                .child(render_zone_overlay(
-                    drag_zone_label.clone(),
-                    paste_zone_label.clone(),
-                    zone_caption,
-                )),
+                .child(render_zone_overlay()),
         )
         .child(
             div()
@@ -299,12 +280,6 @@ pub fn render_clipboard_item(
     }
 }
 
-#[derive(Clone, Copy)]
-enum CardHalf {
-    Left,
-    Right,
-}
-
 /// Fixed 50/50 split — absolute halves so wide clipped content cannot expand one side.
 fn render_split_card(
     left: impl IntoElement,
@@ -336,95 +311,11 @@ fn render_split_card(
         )
 }
 
-fn render_zone_overlay(
-    drag_label: String,
-    paste_label: String,
-    caption_color: Hsla,
-) -> impl IntoElement {
+fn render_zone_overlay() -> impl IntoElement {
     render_split_card(
-        div()
-            .size_full()
-            .bg(drag_zone_bg())
-            .child(render_zone_label(drag_label, caption_color)),
-        div()
-            .size_full()
-            .bg(paste_zone_bg())
-            .child(render_zone_label(paste_label, caption_color)),
+        div().size_full().bg(drag_zone_bg()),
+        div().size_full().bg(paste_zone_bg()),
     )
-}
-
-fn render_zone_label(label: String, caption_color: Hsla) -> impl IntoElement {
-    Label::new(label)
-        .text_xs()
-        .text_color(caption_color)
-        .px_2()
-        .pt_1()
-}
-
-fn render_zone_column(
-    label: String,
-    caption_color: Hsla,
-    body: impl IntoElement,
-) -> impl IntoElement {
-    v_flex()
-        .size_full()
-        .min_w_0()
-        .overflow_hidden()
-        .child(
-            Label::new(label)
-                .text_xs()
-                .text_color(caption_color)
-                .px_2()
-                .pt_1(),
-        )
-        .child(
-            div()
-                .flex_1()
-                .min_w_0()
-                .min_h_0()
-                .w_full()
-                .overflow_hidden()
-                .pb_2()
-                .child(body),
-        )
-}
-
-fn clipped_card_half(
-    content_type: ContentType,
-    lines: &[SharedString],
-    time_text: &str,
-    is_pinned: bool,
-    file_count: Option<usize>,
-    half: CardHalf,
-    cx: &App,
-) -> impl IntoElement {
-    let inner = div()
-        .w(relative(2.))
-        .min_w_0()
-        .px_2()
-        .child(card_content(
-            content_type,
-            lines,
-            time_text,
-            is_pinned,
-            file_count,
-            cx,
-        ));
-
-    match half {
-        CardHalf::Left => div()
-            .size_full()
-            .min_w_0()
-            .overflow_hidden()
-            .child(inner)
-            .into_any_element(),
-        CardHalf::Right => div()
-            .size_full()
-            .min_w_0()
-            .overflow_hidden()
-            .child(inner.ml(relative(-1.)))
-            .into_any_element(),
-    }
 }
 
 fn card_content(
@@ -448,10 +339,17 @@ fn card_content(
         .items_start()
         .overflow_hidden()
         .child(
-            Icon::new(icon)
-                .with_size(Size::Small)
-                .text_color(theme.muted_foreground)
-                .flex_shrink_0(),
+            div()
+                .flex_shrink_0()
+                .h(px(TEXT_SM_LINE_H))
+                .flex()
+                .items_center()
+                .justify_center()
+                .child(
+                    Icon::new(icon)
+                        .with_size(Size::Small)
+                        .text_color(theme.muted_foreground),
+                ),
         )
         .child(
             v_flex()
