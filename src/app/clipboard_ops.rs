@@ -309,7 +309,7 @@ impl MemoryCleanerApp {
         if from_id == to_id {
             return;
         }
-        self.clear_clipboard_drag_preview();
+        self.clear_clipboard_drag_preview(cx);
         if let Some(storage) = &self.clipboard_storage {
             match storage.move_item_by_id(from_id, to_id) {
                 Ok(()) => self.refresh_clipboard_items(),
@@ -319,11 +319,88 @@ impl MemoryCleanerApp {
         cx.notify();
     }
 
-    pub fn clear_clipboard_drag_preview(&mut self) {
+    pub fn clear_clipboard_drag_preview(&mut self, cx: &mut gpui::Context<Self>) {
         self.clipboard_dragging_id = None;
         self.clipboard_drop_target_id = None;
         self.clipboard_shift_anims.clear();
         self.clipboard_shift_tick_gen = self.clipboard_shift_tick_gen.wrapping_add(1);
+        self.clipboard_drag_track_tick_gen = self.clipboard_drag_track_tick_gen.wrapping_add(1);
+        self.close_clipboard_tearoff_preview(cx);
+    }
+
+    pub fn close_clipboard_tearoff_preview(&mut self, cx: &mut gpui::Context<Self>) {
+        self.clipboard_tearoff_preview_opening = false;
+        if let Some(handle) = self.clipboard_tearoff_preview_handle.take() {
+            let _ = handle.update(cx, |_, window, _| window.remove_window());
+        }
+    }
+
+    pub fn update_clipboard_tearoff_preview_position(&mut self, cx: &mut gpui::Context<Self>) {
+        let Some(handle) = self.clipboard_tearoff_preview_handle else {
+            return;
+        };
+        let Ok(screen) = crate::win32::cursor::screen_point() else {
+            return;
+        };
+        let origin = crate::ui::tearoff_drag_preview::tearoff_preview_origin(screen);
+        let _ = handle.update(cx, |_, window, _| {
+            let _ = crate::win32::window::set_window_screen_origin(window, origin);
+        });
+    }
+
+    pub fn begin_clipboard_tearoff_preview(&mut self, item_id: i64, cx: &mut gpui::Context<Self>) {
+        if self.clipboard_tearoff_preview_handle.is_some() || self.clipboard_tearoff_preview_opening {
+            self.update_clipboard_tearoff_preview_position(cx);
+            return;
+        }
+
+        let item = self
+            .clipboard_items
+            .iter()
+            .find(|item| item.id == item_id)
+            .cloned()
+            .or_else(|| {
+                self.clipboard_storage.as_ref().and_then(|storage| {
+                    storage.get(item_id).ok().flatten()
+                })
+            });
+
+        let Some(item) = item else {
+            crate::log_msg(&format!("[clipboard] tearoff preview missing item {item_id}"));
+            return;
+        };
+
+        self.clipboard_tearoff_preview_opening = true;
+        cx.notify();
+
+        let screen = crate::win32::cursor::screen_point().unwrap_or(point(px(200.), px(200.)));
+        let origin = crate::ui::tearoff_drag_preview::tearoff_preview_origin(screen);
+        let options = crate::ui::tearoff_drag_preview::tearoff_preview_window_options(origin);
+
+        cx.spawn(async move |this, cx| {
+            let opened = cx.open_window(options, |window, cx| {
+                crate::ui::theme::init_light_theme(window, cx);
+                let _ = crate::win32::window::set_always_on_top(window, true);
+                let _ = crate::win32::window::set_tool_window(window);
+                let preview =
+                    cx.new(|_| crate::ui::tearoff_drag_preview::TearoffDragPreview::new(item));
+                cx.new(|cx| Root::new(preview, window, cx))
+            });
+
+            let _ = this.update(cx, |app, cx| {
+                app.clipboard_tearoff_preview_opening = false;
+                match opened {
+                    Ok(handle) => {
+                        app.clipboard_tearoff_preview_handle = Some(handle.into());
+                        app.update_clipboard_tearoff_preview_position(cx);
+                    }
+                    Err(e) => {
+                        crate::log_msg(&format!("[clipboard] tearoff preview open failed: {e:#}"));
+                    }
+                }
+            });
+        })
+        .detach();
     }
 
     /// Spawn a frameless desktop card when the user drags a row out of the main window.
@@ -370,6 +447,7 @@ impl MemoryCleanerApp {
             let opened = cx.open_window(options, |window, cx| {
                 window.set_window_title(&title);
                 crate::ui::theme::init_light_theme(window, cx);
+                let _ = crate::win32::window::remove_maximize_button(window);
                 let pinned = cx.new(|_| PinnedCardWindow::new(item_for_window));
                 cx.new(|cx| Root::new(pinned, window, cx))
             });

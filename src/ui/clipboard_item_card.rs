@@ -37,7 +37,7 @@ pub struct DragClipboardItem {
 }
 
 #[derive(Clone)]
-struct DragPreviewCard {
+pub(crate) struct DragPreviewCard {
     lines: Vec<SharedString>,
     time_text: SharedString,
     content_type: ContentType,
@@ -47,6 +47,14 @@ struct DragPreviewCard {
 
 impl Render for DragPreviewCard {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // Tear-off uses a separate follower window; hide the in-window GPUI ghost.
+        if cx
+            .try_global::<AppEntityHolder>()
+            .is_some_and(|holder| holder.0.read(cx).clipboard_drag_tearoff)
+        {
+            return div().occlude();
+        }
+
         // Keep the ghost non-interactive so list `on_drag_move` still receives pointer events
         // (same idea as dnd-kit DragOverlay not blocking collision).
         let theme = cx.theme();
@@ -127,13 +135,7 @@ pub fn render_clipboard_item(
         .map(SharedString::from)
         .collect();
     let file_count = item.file_paths.as_ref().map(|p| p.len());
-    let drag_preview = DragPreviewCard {
-        lines: preview_lines.clone(),
-        time_text: time_text.clone().into(),
-        content_type: item.content_type,
-        is_pinned: item.is_pinned,
-        file_count,
-    };
+    let drag_preview = drag_preview_card_from_item(item);
     let drag_payload = DragClipboardItem { id: item_id };
     let app_entity = cx.global::<AppEntityHolder>().0.clone();
 
@@ -214,6 +216,7 @@ pub fn render_clipboard_item(
                                 );
                             }
                             crate::ui::clipboard_panel::sync_clipboard_shift_anims(app, cx);
+                            crate::ui::clipboard_panel::start_clipboard_drag_tracker(app, cx);
                             cx.notify();
                         });
                         let preview = preview.clone();
@@ -387,6 +390,21 @@ fn card_content(
                 .text_color(theme.muted_foreground)
                 .into_any_element()
         }))
+}
+
+/// Drag ghost payload for in-window overlay and tear-off follower window.
+pub(crate) fn drag_preview_card_from_item(item: &ClipboardItem) -> DragPreviewCard {
+    let preview_lines: Vec<SharedString> = display_lines(item)
+        .into_iter()
+        .map(SharedString::from)
+        .collect();
+    DragPreviewCard {
+        lines: preview_lines,
+        time_text: format_time_ago(&item.created_at).into(),
+        content_type: item.content_type,
+        is_pinned: item.is_pinned,
+        file_count: item.file_paths.as_ref().map(|p| p.len()),
+    }
 }
 
 /// Shared card body for list rows and pinned desktop cards.

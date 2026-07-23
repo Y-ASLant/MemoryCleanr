@@ -93,7 +93,7 @@ pub fn render_clipboard_panel(
                         {
                             app.move_clipboard_item(drag.id, to, cx);
                         } else {
-                            app.clear_clipboard_drag_preview();
+                            app.clear_clipboard_drag_preview(cx);
                             cx.notify();
                         }
                     }))
@@ -451,8 +451,7 @@ fn start_clipboard_shift_ticker(
     .detach();
 }
 
-/// Resolve `over` from pointer Y — closest row center (dnd-kit `closestCenter` for
-/// uniform rows) with light hysteresis so the boundary doesn't chatter.
+/// Mark tear-off when the drag pointer leaves the main window viewport.
 fn update_drag_tearoff(
     app: &mut MemoryCleanerApp,
     e: &DragMoveEvent<DragClipboardItem>,
@@ -475,7 +474,87 @@ fn update_drag_tearoff(
     app.clipboard_drop_target_id = None;
     app.clipboard_shift_anims.clear();
     app.clipboard_shift_tick_gen = app.clipboard_shift_tick_gen.wrapping_add(1);
+    if let Some(item_id) = app.clipboard_dragging_id {
+        app.begin_clipboard_tearoff_preview(item_id, cx);
+    }
+    window.refresh();
     cx.notify();
+}
+
+const DRAG_TRACK_TICK: Duration = Duration::from_millis(16);
+
+fn cursor_outside_window_bounds(
+    cursor: Point<Pixels>,
+    bounds: Bounds<Pixels>,
+) -> bool {
+    cursor.x < bounds.origin.x
+        || cursor.y < bounds.origin.y
+        || cursor.x >= bounds.origin.x + bounds.size.width
+        || cursor.y >= bounds.origin.y + bounds.size.height
+}
+
+/// Global cursor tracker: GPUI drag ghost stops at the window edge; once outside,
+/// a borderless follower window tracks the cursor until release.
+pub fn start_clipboard_drag_tracker(app: &mut MemoryCleanerApp, cx: &mut Context<MemoryCleanerApp>) {
+    app.clipboard_drag_track_tick_gen = app.clipboard_drag_track_tick_gen.wrapping_add(1);
+    let tick_gen = app.clipboard_drag_track_tick_gen;
+    cx.spawn(async move |this, cx| {
+        loop {
+            Timer::after(DRAG_TRACK_TICK).await;
+            let keep = this
+                .update(cx, |app, cx| {
+                    if app.clipboard_drag_track_tick_gen != tick_gen {
+                        return false;
+                    }
+                    let Some(dragging_id) = app.clipboard_dragging_id else {
+                        return false;
+                    };
+
+                    let cursor = match crate::win32::cursor::screen_point() {
+                        Ok(point) => point,
+                        Err(_) => return true,
+                    };
+
+                    let outside = app
+                        .window
+                        .is_some_and(|handle| {
+                            handle
+                                .update(cx, |_, window, _| {
+                                    crate::win32::window::window_screen_bounds(window)
+                                })
+                                .ok()
+                                .and_then(|result| result.ok())
+                                .is_some_and(|bounds| {
+                                    cursor_outside_window_bounds(cursor, bounds)
+                                })
+                        });
+
+                    if outside && !app.clipboard_drag_tearoff {
+                        app.clipboard_drag_tearoff = true;
+                        app.clipboard_drop_target_id = None;
+                        app.clipboard_shift_anims.clear();
+                        app.clipboard_shift_tick_gen =
+                            app.clipboard_shift_tick_gen.wrapping_add(1);
+                        app.begin_clipboard_tearoff_preview(dragging_id, cx);
+                        if let Some(handle) = app.window {
+                            let _ = handle.update(cx, |_, window, _| window.refresh());
+                        }
+                        cx.notify();
+                    }
+
+                    if app.clipboard_drag_tearoff {
+                        app.update_clipboard_tearoff_preview_position(cx);
+                    }
+
+                    true
+                })
+                .unwrap_or(false);
+            if !keep {
+                break;
+            }
+        }
+    })
+    .detach();
 }
 
 /// Resolve `over` from pointer Y — closest row center (dnd-kit `closestCenter` for

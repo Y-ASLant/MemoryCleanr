@@ -93,6 +93,9 @@ clipboard.paste_zone:
 clipboard.status_hint:
   zh-CN: "点击右侧粘贴 · 删除需确认 · 左侧拖拽排序 · 拖出窗口可钉住"
   en: "Click right to paste · Delete needs confirmation · Drag left to reorder · Drag out to pin"
+clipboard.paste_tooltip:
+  zh-CN: "粘贴"
+  en: "Paste"
 clipboard.unpin_tooltip:
   zh-CN: "取消钉住"
   en: "Unpin"

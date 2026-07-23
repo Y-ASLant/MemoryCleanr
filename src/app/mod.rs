@@ -177,6 +177,12 @@ pub struct MemoryCleanerApp {
     pub clipboard_dragging_id: Option<i64>,
     /// Drag pointer left the main window — release should pin a desktop card.
     pub clipboard_drag_tearoff: bool,
+    /// Borderless follower window while dragging outside the main window.
+    pub clipboard_tearoff_preview_handle: Option<AnyWindowHandle>,
+    /// Prevents duplicate async open while the follower window is being created.
+    pub clipboard_tearoff_preview_opening: bool,
+    /// Bumps to cancel the global drag-position tracker.
+    pub clipboard_drag_track_tick_gen: u32,
     /// Floating desktop card windows keyed by clipboard item id.
     pub pinned_card_handles: HashMap<i64, AnyWindowHandle>,
     /// Card under the pointer (reveals row actions).
@@ -301,6 +307,9 @@ impl MemoryCleanerApp {
             clipboard_drop_target_id: None,
             clipboard_dragging_id: None,
             clipboard_drag_tearoff: false,
+            clipboard_tearoff_preview_handle: None,
+            clipboard_tearoff_preview_opening: false,
+            clipboard_drag_track_tick_gen: 0,
             pinned_card_handles: HashMap::new(),
             clipboard_hovered_id: None,
             clipboard_deleting_id: None,
@@ -590,7 +599,7 @@ impl Render for MemoryCleanerApp {
             let tearoff = self.clipboard_drag_tearoff;
             let item_id = self.clipboard_dragging_id;
             self.clipboard_drag_tearoff = false;
-            self.clear_clipboard_drag_preview();
+            self.clear_clipboard_drag_preview(cx);
             if tearoff && let Some(id) = item_id {
                 self.open_pinned_card_from_tearoff(id, cx);
             }

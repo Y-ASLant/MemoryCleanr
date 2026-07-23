@@ -1,12 +1,12 @@
 use anyhow::{Context, Result};
-use gpui::Window;
+use gpui::{Bounds, Pixels, Point, Window, point, px, size};
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-use windows::Win32::Foundation::HWND;
+use windows::Win32::Foundation::{HWND, RECT};
 use windows::Win32::UI::WindowsAndMessaging::{
-    GWL_EXSTYLE, GWL_STYLE, GetWindowLongPtrW, HWND_NOTOPMOST, HWND_TOPMOST, IsIconic,
-    SHOW_WINDOW_CMD, SW_HIDE, SW_RESTORE, SW_SHOW, SW_SHOWNOACTIVATE, SWP_FRAMECHANGED,
-    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SetWindowLongPtrW, SetWindowPos, ShowWindow,
-    WS_EX_APPWINDOW, WS_EX_TOOLWINDOW, WS_MAXIMIZEBOX,
+    GWL_EXSTYLE, GWL_STYLE, GetWindowLongPtrW, GetWindowRect, HWND_NOTOPMOST, HWND_TOPMOST,
+    IsIconic, SHOW_WINDOW_CMD, SW_HIDE, SW_RESTORE, SW_SHOW, SW_SHOWNOACTIVATE, SWP_FRAMECHANGED,
+    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SetWindowLongPtrW, SetWindowPos,
+    ShowWindow, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW, WS_MAXIMIZEBOX,
 };
 
 fn show_window(hwnd: HWND, cmd: SHOW_WINDOW_CMD) -> Result<()> {
@@ -121,4 +121,44 @@ pub fn remove_maximize_button(window: &Window) -> Result<()> {
         );
     }
     Ok(())
+}
+
+/// Outer window rectangle in screen coordinates.
+pub fn window_screen_bounds(window: &Window) -> Result<Bounds<Pixels>> {
+    let hwnd = hwnd_from_window(window)?;
+    unsafe {
+        let mut rect = RECT::default();
+        GetWindowRect(hwnd, &mut rect).context("GetWindowRect")?;
+        Ok(Bounds::new(
+            point(px(rect.left as f32), px(rect.top as f32)),
+            size(
+                px((rect.right - rect.left) as f32),
+                px((rect.bottom - rect.top) as f32),
+            ),
+        ))
+    }
+}
+
+/// Move a window without resizing or changing z-order.
+pub fn set_window_screen_origin(window: &Window, origin: Point<Pixels>) -> Result<()> {
+    let hwnd = hwnd_from_window(window)?;
+    unsafe {
+        SetWindowPos(
+            hwnd,
+            None,
+            f32::from(origin.x) as i32,
+            f32::from(origin.y) as i32,
+            0,
+            0,
+            SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOZORDER,
+        )
+        .context("SetWindowPos move")?;
+    }
+    Ok(())
+}
+
+/// Hide from the taskbar (tool window); pair with [`set_always_on_top`] for drag ghosts.
+pub fn set_tool_window(window: &Window) -> Result<()> {
+    let hwnd = hwnd_from_window(window)?;
+    apply_extended_style(hwnd, |style| style | WS_EX_TOOLWINDOW.0)
 }
