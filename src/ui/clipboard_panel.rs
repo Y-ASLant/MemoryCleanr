@@ -7,7 +7,7 @@ use gpui_component::{ActiveTheme, h_flex, label::Label, v_flex};
 use rust_i18n::t;
 use smol::Timer;
 
-use crate::app::{ClipboardFilterSlide, ClipboardShiftAnim, MemoryCleanerApp};
+use crate::app::{MemoryCleanerApp, Tween};
 use crate::clipboard::ContentType;
 use crate::ui::clipboard_item_card::{DragClipboardItem, ITEM_HEIGHT, render_clipboard_item};
 
@@ -232,7 +232,7 @@ pub fn begin_clipboard_hover_fade(
     }
     app.clipboard_hover_fades.insert(
         id,
-        crate::app::ClipboardHoverFade {
+        Tween {
             from,
             to,
             start: now,
@@ -332,7 +332,7 @@ pub fn sync_clipboard_shift_anims(app: &mut MemoryCleanerApp, cx: &mut Context<M
         if (prev_to - target).abs() > 0.5 {
             app.clipboard_shift_anims.insert(
                 id,
-                ClipboardShiftAnim {
+                Tween {
                     from: current,
                     to: target,
                     start: now,
@@ -342,7 +342,7 @@ pub fn sync_clipboard_shift_anims(app: &mut MemoryCleanerApp, cx: &mut Context<M
         } else if !app.clipboard_shift_anims.contains_key(&id) && target.abs() > 0.5 {
             app.clipboard_shift_anims.insert(
                 id,
-                ClipboardShiftAnim {
+                Tween {
                     from: 0.,
                     to: target,
                     start: now,
@@ -382,7 +382,7 @@ pub fn begin_delete_collapse(
             // Subtle lift while fading out.
             app.clipboard_shift_anims.insert(
                 id,
-                ClipboardShiftAnim {
+                Tween {
                     from: sample_shift_y(app, id, now),
                     to: -12.,
                     start: now,
@@ -396,7 +396,7 @@ pub fn begin_delete_collapse(
         let current = sample_shift_y(app, id, now);
         app.clipboard_shift_anims.insert(
             id,
-            ClipboardShiftAnim {
+            Tween {
                 from: current,
                 to: -ROW_HEIGHT,
                 start: now,
@@ -714,7 +714,7 @@ pub fn begin_filter_slide(
         app.clipboard_filter_slide = None;
         return;
     }
-    app.clipboard_filter_slide = Some(ClipboardFilterSlide {
+    app.clipboard_filter_slide = Some(Tween {
         from,
         to,
         start: now,

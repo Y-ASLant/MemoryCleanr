@@ -36,7 +36,6 @@ pub(crate) async fn show_toast(title: String, body: String) {
 }
 
 pub const WINDOW_WIDTH: f32 = 520.;
-pub const WINDOW_MIN_WIDTH: f32 = 520.;
 pub const CONTENT_PADDING: f32 = 6.;
 
 pub fn window_size(expanded: bool, clipboard_visible: bool) -> Size<Pixels> {
@@ -52,7 +51,7 @@ pub fn window_size(expanded: bool, clipboard_visible: bool) -> Size<Pixels> {
 
 pub fn window_min_size() -> Size<Pixels> {
     size(
-        px(WINDOW_MIN_WIDTH),
+        px(WINDOW_WIDTH),
         px(crate::ui::layout::collapsed_window_height(CONTENT_PADDING)),
     )
 }
@@ -165,7 +164,7 @@ pub struct MemoryCleanerApp {
     /// Filter clipboard list by content type (`None` = all).
     pub clipboard_filter: Option<crate::clipboard::ContentType>,
     /// Sliding filter pill tween (ElegantClipboard-style segment indicator).
-    pub clipboard_filter_slide: Option<ClipboardFilterSlide>,
+    pub clipboard_filter_slide: Option<Tween>,
     /// Bumps to cancel the filter-slide ticker.
     pub clipboard_filter_tick_gen: u32,
     /// Selected index in clipboard list (for keyboard nav).
@@ -191,9 +190,9 @@ pub struct MemoryCleanerApp {
     /// Item playing delete exit animation before removal.
     pub clipboard_deleting_id: Option<i64>,
     /// Per-item translateY tween while reordering (dnd-kit style make-way).
-    pub clipboard_shift_anims: HashMap<i64, ClipboardShiftAnim>,
+    pub clipboard_shift_anims: HashMap<i64, Tween>,
     /// Per-card hover reveal opacity tween.
-    pub clipboard_hover_fades: HashMap<i64, ClipboardHoverFade>,
+    pub clipboard_hover_fades: HashMap<i64, Tween>,
     /// Bumps to cancel the in-flight shift ticker.
     pub clipboard_shift_tick_gen: u32,
     /// Bumps to cancel the hover-fade ticker.
@@ -210,25 +209,9 @@ pub struct MemoryCleanerApp {
     pub(crate) anim_dirty: bool,
 }
 
-/// One card's translateY animation during drag reorder.
+/// Generic value-to-value tween with start time (used for shift, filter-slide, and hover-fade).
 #[derive(Clone, Debug)]
-pub struct ClipboardShiftAnim {
-    pub from: f32,
-    pub to: f32,
-    pub start: Instant,
-}
-
-/// Filter segment indicator position (0 = 全部, 1 = 文本, 2 = 文件).
-#[derive(Clone, Debug)]
-pub struct ClipboardFilterSlide {
-    pub from: f32,
-    pub to: f32,
-    pub start: Instant,
-}
-
-/// Per-card hover reveal opacity (zone tint, labels, delete button).
-#[derive(Clone, Debug)]
-pub struct ClipboardHoverFade {
+pub struct Tween {
     pub from: f32,
     pub to: f32,
     pub start: Instant,
